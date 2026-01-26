@@ -3,11 +3,14 @@ const express = require('express')
 const mysql = require('mysql2')
 const {v4:uuidv4} = require('uuid')
 const bcrypt = require('bcrypt')
+const cors = require('cors');
 
 // HTTP_PORT and activating express
 const HTTP_PORT = 8000
 var app = express()
 app.use(express.json())
+//Activating cors
+app.use(cors());
 
 // Connection Data for the database
 const objConnectionData = {
