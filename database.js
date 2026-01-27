@@ -76,5 +76,31 @@ app.get('/user', (req, res, next) => {
 
 // User post function
 app.post('/user', (req, res, next) => {
+    let intUserID = req.body.userID
+    let strUsername = req.body.username
+    let strPassword = req.body.password
+    let strRole = req.body.role
+    let intAssignedAmbulance = req.body.assignedAmbulance
 
+    try {
+        conHippoExchange.connect(err => {
+            if(err){
+                console.log("Connection did not work because ", err)
+            } else {
+                console.log("Success")
+                let strQuery = "INSERT INTO tblUsers VALUES (?,?,?,?,?)"
+                conHippoExchange.query(strQuery, [intUserID, strUsername, strPassword, strRole, intAssignedAmbulance], (err, results, fields) => {
+                    if(err) {
+                        console.error('Error again', err)
+                        res.status(404).json({status:"Failed"})
+                    } else {
+                        console.log(results)
+                        res.status(200).json({status:"Success"})
+                    }
+                })
+            }
+        })
+    } catch(err) {
+        res.status(401).json({error:err})
+    }
 })
