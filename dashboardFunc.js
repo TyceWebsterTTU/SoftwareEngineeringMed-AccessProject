@@ -15,7 +15,7 @@ async function login() {
 
     /* try {
         const fetchRes = await fetch("http://localhost:8000/login", {
-            method: "POST",
+            method: "GET",
             headers: {
                 "Content-Type": "application/json"
             },
@@ -49,6 +49,45 @@ function logout() {
 
     document.getElementById("txtUsrName").value = '';
     document.getElementById("txtPassword").value = '';
+}
+
+async function DisplayUserData() {
+    try {
+        const fetchRes = await fetch("http://localhost:8000/DisplayUsers", {
+            credentials: "include"
+        });
+        const user = await fetchRes.json();
+
+        const results = user.results;
+
+        const tableHead = document.getElementById("tableHead");
+        const tableBody = document.getElementById("tableBody");
+
+        tableHead.innerHTML = "";
+        tableBody.innerHTML = "";
+
+        if (results.length === 0) {
+            tableBody.innerHTML = "<tr><td>No data found</td></tr>";
+            return;
+        }
+
+        // Build table headers
+        const headers = Object.keys(results[0]);
+        let headRow = "<tr>";
+        headers.forEach(h => headRow += `<th>${h}</th>`);
+        headRow += "</tr>";
+        tableHead.innerHTML = headRow;
+
+        // Build table rows
+        results.forEach(row => {
+            let rowHTML = "<tr>";
+            headers.forEach(h => rowHTML += `<td>${row[h]}</td>`);
+            rowHTML += "</tr>";
+            tableBody.innerHTML += rowHTML;
+        });
+    } catch (err) {
+        console.error("Error loading data:", err);
+    }
 }
 
 async function loadTestData() {
