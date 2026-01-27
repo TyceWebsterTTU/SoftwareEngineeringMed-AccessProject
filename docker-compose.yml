@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  # Service 1: The Database
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword123  # Change this!
+      MYSQL_DATABASE: capstonedb
+      MYSQL_USER: user
+      MYSQL_PASSWORD: userpassword123
+    ports:
+      - "3306:3306" # Optional: Access DB from outside docker
+    volumes:
+      # This saves your data even if the container crashes
+      - db_data:/var/lib/mysql
+      # This automatically runs your SQL script on startup!
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  # Service 2: The Node.js App
+  app:
+    build: ./backend
+    restart: always
+    ports:
+      - "3000:3000" # Map container port 3000 to server port 3000
+    depends_on:
+      - db # Wait for DB to start before starting app
+    environment:
+      # Tell Node where the DB is (use the SERVICE NAME 'db', not localhost)
+      DB_HOST: db
+      DB_USER: user
+      DB_PASS: userpassword123
+      DB_NAME: capstonedb
+    volumes:
+      # Serve frontend files if they are static
+      - ./frontend:/app/public 
+
+volumes:
+  db_data:
