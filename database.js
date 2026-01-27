@@ -24,6 +24,7 @@ app.listen(HTTP_PORT, () => {
     console.log("Listening on port", HTTP_PORT)
 })
 
+// Test
 app.get('/test',(req,res,next) => {
     try {
         conMedAccess.connect(err => {
@@ -46,4 +47,34 @@ app.get('/test',(req,res,next) => {
     } catch (err) {
         res.status(401).json({ error: err })
     }
+})
+
+// User get function
+app.get('/user', (req, res, next) => {
+    try {
+        conHippoExchange.connect(err => {
+            if (err) {
+                console.error("Connection did not work because", err)
+            } else {
+                console.log("Success")
+                let strQuery = "SELECT * FROM tblUser"
+                conMedAccess.query(strQuery, (err, results, fields) => {
+                    if(err) {
+                        console.error("Error: ", err)
+                        res.status(404).json(err)
+                    } else {
+                        console.log(results)
+                        return res.json(results)
+                    }
+                })
+            }
+        })
+    } catch (err) {
+        res.status(401).json({ error: err })
+    }
+})
+
+// User post function
+app.post('/user', (req, res, next) => {
+
 })
