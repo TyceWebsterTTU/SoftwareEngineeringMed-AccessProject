@@ -1,0 +1,5 @@
+https://capstone-app-standard-pc-q35-ich9-2009.tail7885af.ts.net (tailnet only)
+|-- / proxy http://localhost:3000
+
+https://capstone-app-standard-pc-q35-ich9-2009.tail7885af.ts.net:8443 (tailnet only)
+|-- / proxy http://localhost:8080
