@@ -16,8 +16,8 @@ app.use(cors());
 const objConnectionData = {
     host: 'localhost',
     user: 'root',
-    port: 3306,
-    password: "Password123",
+    port: 3305,
+    password: "Mickey2025!",
     database: "dbMedAccess"
 }
 const conMedAccess = mysql.createConnection(objConnectionData)
@@ -52,15 +52,76 @@ app.get('/test',(req,res,next) => {
     }
 })
 
+app.post('/login', (req, res, next) => {
+    let strUsername = req.body.username;
+    let strPassword = req.body.password;
+
+    try {
+        conMedAccess.connect (err => {
+            if (err) {
+                console.error("Connection did not work because", err);
+            } else {
+                console.log("Success");
+                let strQuery = "SELECT * FROM tblUsers WHERE Username = ?";
+                conMedAccess.query(strQuery, [strUsername], (err, results, fields) => {
+                    if (err) {
+                        console.error(err);
+                        return res.status(404).json({ success: false});
+                    }
+
+                    if (results.length === 0) {
+                        console.log(results);
+                        return res.status(401).json({
+                            success: false,
+                            message: "Invalid username or password"
+                        });
+                    }
+
+                    const user = results[0];
+                    console.log(user)
+
+                    // const passwordMatch = passwordMatch = bcrypt.compareSync(
+                    //     strPassword,
+                    //     user.password
+                    // );
+
+                    // if (!passwordMatch) {
+                    //     return res.status(401).json({
+                    //         success: false,
+                    //         message: "Invalid password"
+                    //     })
+                    // }
+
+                    if(user.Password != strPassword) {
+                        return res.status(401).json({
+                            success: false,
+                            message: "Invalid password"
+                        })
+                    }
+
+                    res.json({
+                        success: true,
+                        userID: user.UserID,
+                        username: user.Username,
+                        isAdmin: user.Role == "Admin"
+                    });
+                })
+            }
+        })
+    } catch (err) {
+        res.status(401).json({ error: err });
+    }
+})
+
 // User get function
 app.get('/user', (req, res, next) => {
     try {
-        conHippoExchange.connect(err => {
+        conMedAccess.connect(err => {
             if (err) {
                 console.error("Connection did not work because", err)
             } else {
                 console.log("Success")
-                let strQuery = "SELECT * FROM tblUser"
+                let strQuery = "SELECT * FROM tblUsers"
                 conMedAccess.query(strQuery, (err, results, fields) => {
                     if(err) {
                         console.error("Error: ", err)
@@ -79,20 +140,20 @@ app.get('/user', (req, res, next) => {
 
 // User post function
 app.post('/user', (req, res, next) => {
-    let intUserID = req.body.userID
-    let strUsername = req.body.username
-    let strPassword = req.body.password
-    let strRole = req.body.role
-    let intAssignedAmbulance = req.body.assignedAmbulance
+    let intUserID = req.body.userID;
+    let strUsername = req.body.username;
+    let strPassword = req.body.password;
+    let strRole = req.body.role;
+    let intAssignedAmbulance = req.body.assignedAmbulance;
 
     try {
-        conHippoExchange.connect(err => {
+        conMedAccess.connect(err => {
             if(err){
                 console.log("Connection did not work because ", err)
             } else {
                 console.log("Success")
                 let strQuery = "INSERT INTO tblUsers VALUES (?,?,?,?,?)"
-                conHippoExchange.query(strQuery, [intUserID, strUsername, strPassword, strRole, intAssignedAmbulance], (err, results, fields) => {
+                conMedAccess.query(strQuery, [intUserID, strUsername, strPassword, strRole, intAssignedAmbulance], (err, results, fields) => {
                     if(err) {
                         console.error('Error again', err)
                         res.status(404).json({status:"Failed"})

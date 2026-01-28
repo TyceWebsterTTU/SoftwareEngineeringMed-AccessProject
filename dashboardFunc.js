@@ -2,20 +2,9 @@ async function login() {
     const usr = document.getElementById('txtUsrName').value
     const pass = document.getElementById('txtPassword').value
 
-    if (!usr || !pass) {
-        alert("Please enter username and password");
-        return;
-    }
-
-    if (usr == "testing" && pass == "testing123!") {
-        window.location.href = "dashboard.html";
-    } else {
-        alert('Invalid Login Attempt')
-    }
-
-    /* try {
+    try {
         const fetchRes = await fetch("http://localhost:8000/login", {
-            method: "GET",
+            method: "POST",
             headers: {
                 "Content-Type": "application/json"
             },
@@ -41,7 +30,7 @@ async function login() {
     } catch (err) {
         console.error("Login error:", err);
         alert("Server error. Please try again later.");
-    } */
+    }
 }
 
 function logout() {
