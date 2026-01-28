@@ -13,9 +13,7 @@ CREATE TABLE `tblAmbulance` (
   `ActiveCall (ID=0 for NotActive)` INT,
   `CaseID` INT,
   `ConnectedESP` INT,
-  PRIMARY KEY (`UnitID`),
-  FOREIGN KEY (`UnitID`)
-      REFERENCES `tblUsers`(`AssignedAmbulance`)
+  PRIMARY KEY (`UnitID`)
 );
 
 CREATE TABLE `tblAssignments` (
@@ -23,9 +21,7 @@ CREATE TABLE `tblAssignments` (
   `Name` VARCHAR(32),
   `Description` VARCHAR(500),
   `NeedsAccess` BOOLEAN,
-  PRIMARY KEY (`ID`),
-  FOREIGN KEY (`ID`)
-      REFERENCES `tblAmbulance`(`ActiveCall (ID=0 for NotActive)`)
+  PRIMARY KEY (`ID`)
 );
 
 CREATE TABLE `tblUserDevices` (
@@ -41,22 +37,14 @@ CREATE TABLE `tblCases` (
   `Locked` BOOLEAN,
   `Open??` BOOLEAN,
   `Needed` BOOLEAN,
-  PRIMARY KEY (`CaseID`),
-  FOREIGN KEY (`Needed`)
-      REFERENCES `tblAssignments`(`NeedsAccess`),
-  FOREIGN KEY (`CaseID`)
-      REFERENCES `tblUserDevices`(`ConnectedDevice`),
-  FOREIGN KEY (`CaseID`)
-      REFERENCES `tblAmbulance`(`CaseID`)
+  PRIMARY KEY (`CaseID`)
 );
 
 CREATE TABLE `tblLogins` (
   `UserID` INT,
   `LastLoginTime` DATETIME,
   `LastLogoutTime` DATETIME,
-  PRIMARY KEY (`UserID`),
-  FOREIGN KEY (`UserID`)
-      REFERENCES `tblUsers`(`UserID`)
+  PRIMARY KEY (`UserID`)
 );
 
 CREATE TABLE `tblRoles` (
@@ -64,8 +52,6 @@ CREATE TABLE `tblRoles` (
   `Name` VARCHAR(32),
   `Description` VARCHAR(500),
   `HasPerms` BOOLEAN,
-  PRIMARY KEY (`RoleID`),
-  FOREIGN KEY (`Name`)
-      REFERENCES `tblUsers`(`Role`)
+  PRIMARY KEY (`RoleID`)
 );
 
