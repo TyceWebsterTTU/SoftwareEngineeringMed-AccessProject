@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">  
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg bg-primary" data-bs-theme="dark">
+    <div class="container-fluid">
+    <a class="navbar-brand" href="#">Med-Access Admin</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarColor01" aria-controls="navbarColor01" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarColor01">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item">
+          <a class="nav-link active" id="nav-home" href="#" onclick="showSection('home')">Home
+            <span class="visually-hidden">(current)</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" id="nav-dispatch" href="#" onclick="showSection('dispatch')">Dispatch</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" id="nav-users" href="#" onclick="showSection('users')">Users</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" id="nav-boxes" href="#" onclick="showSection('boxes')">Boxes</a>
+        </li>
+      </ul>
+      <button id="btnLogout" class="btn btn-primary" type="button" onclick="logout()">Logout</button>
+        </div>
+    </div>
+    </nav>
+
+    <div id="content-area">
+    <div id="section-home" class="container-fluid py-4">
+        <div class="well">
+            <h4>Dashboard</h4>
+            <p>Welcome to the admin overview.</p>
+        </div>
+        </div>
+
+    <div id="section-dispatch" class="container-fluid py-4" style="display:none;">
+        <h3>Dispatch Management</h3>
+        <p>Manage active dispatches here.</p>
+    </div>
+
+    <div id="section-users" class="container-fluid py-4" style="display:none;">
+        <h3>User Management</h3>
+        <p>Edit, add, or remove users.</p>
+    </div>
+
+    <div id="section-boxes" class="container-fluid py-4" style="display:none;">
+        <h3>Box Inventory</h3>
+        <p>Track your 1 million boxes here.</p>
+    </div>
+    </div>
+
+
+
+    </div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+<script>
+    //future functions for the buttons go here
+    function showSection(sectionId) {
+        // 1. List of all possible sections
+        const sections = ['home', 'dispatch', 'users', 'boxes'];
+
+        sections.forEach(s => {
+            const sectionEl = document.getElementById(`section-${s}`);
+            const navEl = document.getElementById(`nav-${s}`);
+
+            if (s === sectionId) {
+                // Show the clicked section
+                sectionEl.style.display = 'block';
+                // Add the active highlight to the nav button
+                navEl.classList.add('active');
+            } else {
+                // Hide the others
+                sectionEl.style.display = 'none';
+                // Remove highlight from others
+                navEl.classList.remove('active');
+            }
+        });
+    }
+</script>
+</body>
+</html>
+<!-- i made all that stuff below before remembering about the bootswatch thingy i want to keep it for a bit-->
+
+<!-- <body class="bg-danger">
+    <h1>Med-Access Admin</h1>
+    <div class="btn-group-vertical" role="group" aria-label="Vertical button group">
+        <button type="button" class="btn btn-primary">Boxes</button>
+        <button type="button" class="btn btn-primary">Users</button>
+        <button type="button" class="btn btn-primary">Dispatch</button>
+    </div>
+    <div id="LoginView" class="d-flex justify-content-center align-items-center vh-100">
+        <div class="card col-12 col-md-5">
+            <div class="card-body">
+            <h2 class="text-center">Med-Access Login</h2>
+
+            <form>
+                <label class="form-label" for="txtUsrName">Username</label>
+                <input class="form-control" id="txtUsrName" type="text">
+                <p></p>
+                <label class="form-label" for="txtPassword">Password</label>
+                <input class="form-control" id="txtPassword" type="password">
+                <p></p>
+                <button id="btnLogin" class="btn btn-primary col-12 mt-2" type="button" onclick="login()">Login</button>
+            </form>
+            </div>
+        </div>
+    </div>
+ -->
