@@ -51,10 +51,13 @@ function logout() {
     document.getElementById("txtPassword").value = '';
 }
 
-async function DisplayUserData() {
+async function LoadUserData() {
     try {
-        const fetchRes = await fetch("http://localhost:8000/DisplayUsers", {
-            credentials: "include"
+        const fetchRes = await fetch("http://localhost:8000/user", {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json"
+            }
         });
         const user = await fetchRes.json();
 
@@ -87,6 +90,38 @@ async function DisplayUserData() {
         });
     } catch (err) {
         console.error("Error loading data:", err);
+    }
+}
+
+async function addUsers() {
+    const user = {
+        username: document.getElementById("newUsername").value,
+        firstName: document.getElementById("newFirstName").value,
+        lastName: document.getElementById("newLastName").value
+    };
+
+    const fetchRes = await fetch("http://localhost:8000/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(user)
+    });
+
+    if (!fetchRes.ok) {
+        alert("Failed to add user");
+        return;
+    }
+}
+
+async function removeUsers(id) {
+    if (!confirm("Are you sure want to delete this user?")) return;
+
+    const fetchRes = await fetch("http://localhost:8000/user/${id}", {
+        method: "DELETE"
+    });
+
+    if (!fetchRes.ok) {
+        alert("Failed to delete user");
+        return;
     }
 }
 
