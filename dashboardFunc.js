@@ -48,9 +48,7 @@ async function LoadUserData() {
                 "Content-Type": "application/json"
             }
         });
-        const user = await fetchRes.json();
-
-        const results = user.results;
+        const results = await fetchRes.json();
 
         const tableHead = document.getElementById("tableHead");
         const tableBody = document.getElementById("tableBody");

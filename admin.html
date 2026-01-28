@@ -51,6 +51,11 @@
     <div id="section-users" class="container-fluid py-4" style="display:none;">
         <h3>User Management</h3>
         <p>Edit, add, or remove users.</p>
+
+        <table class="table table-bordered mt-4">
+            <thead id="tableHead"></thead>
+            <tbody id="tableBody"></tbody>
+        </table>
     </div>
 
     <div id="section-boxes" class="container-fluid py-4" style="display:none;">
@@ -79,6 +84,10 @@
                 sectionEl.style.display = 'block';
                 // Add the active highlight to the nav button
                 navEl.classList.add('active');
+
+                if (s === 'users') {
+                    LoadUserData();
+                }
             } else {
                 // Hide the others
                 sectionEl.style.display = 'none';
