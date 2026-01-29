@@ -1,0 +1,108 @@
+// this could be too much or not enough but the useful logic should be in there
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: sans-serif; padding: 40px; background-color: #f4f4f9; }
+    .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
+    
+    h2 { margin-top: 0; color: #333; }
+    input[type="text"] { width: 100%; padding: 10px; box-sizing: border-box; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; }
+    
+    /* Connection Status */
+    .status-dot { height: 10px; width: 10px; background-color: #bbb; border-radius: 50%; display: inline-block; margin-right: 5px; }
+    .connected { background-color: #28a745; }
+
+    /* The Toggle Switch */
+    .switch { position: relative; display: inline-block; width: 60px; height: 34px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+    
+    input:checked + .slider { background-color: #2196F3; }
+    input:checked + .slider:before { transform: translateX(26px); }
+
+    .control-row { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
+    .btn { background-color: #333; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; width: 100%; }
+    .btn:hover { background-color: #555; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>BLE Scanner</h2>
+  
+  <div style="margin-bottom: 20px;">
+    <span id="statusDot" class="status-dot"></span> 
+    <span id="statusText">Disconnected</span>
+    <button onclick="connectSerial()" style="float: right; padding: 5px 10px;">Connect</button>
+  </div>
+
+  <hr>
+
+  <label><strong>Target UUID:</strong></label>
+  <input type="text" id="uuidInput" value="2E9C4DE7-7236-422D-89B3-272E5813879C">
+  <button class="btn" onclick="updateUUID()">Update UUID</button>
+
+  <hr>
+
+  <div class="control-row">
+    <label><strong>Arm System:</strong></label>
+    <label class="switch">
+      <input type="checkbox" id="armToggle" onchange="toggleArm()">
+      <span class="slider"></span>
+    </label>
+  </div>
+  <p style="font-size: 0.9em; color: #666;">Toggle ON to start scanning.</p>
+
+</div>
+
+<script>
+  let port;
+  let writer;
+
+  async function connectSerial() {
+    try {
+      port = await navigator.serial.requestPort();
+      await port.open({ baudRate: 115200 });
+      
+      const textEncoder = new TextEncoderStream();
+      const writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
+      writer = textEncoder.writable.getWriter();
+      
+      document.getElementById("statusDot").classList.add("connected");
+      document.getElementById("statusText").innerText = "Connected";
+    } catch (err) {
+      console.error(err);
+      alert("Connection failed.");
+    }
+  }
+
+  async function sendCommand(cmd) {
+    if (writer) {
+      await writer.write(cmd + "\n");
+      console.log("Sent:", cmd);
+    } else {
+      alert("Connect to ESP32 first!");
+      // Reset the toggle if not connected
+      document.getElementById("armToggle").checked = false;
+    }
+  }
+
+  function updateUUID() {
+    const uuid = document.getElementById("uuidInput").value;
+    sendCommand("U:" + uuid);
+  }
+
+  function toggleArm() {
+    const isChecked = document.getElementById("armToggle").checked;
+    if (isChecked) {
+      sendCommand("A:1");
+    } else {
+      sendCommand("A:0");
+    }
+  }
+</script>
+
+</body>
+</html>
