@@ -1,20 +1,17 @@
-# Start with a lightweight Node.js image
 FROM node:18-alpine
 
-# Create a folder inside the container
-WORKDIR /app
-
-# Copy package files first (better for caching)
-COPY package*.json ./
+# Create app directory
+WORKDIR /usr/src/app
 
 # Install dependencies
-RUN npm install
+COPY package*.json ./
+RUN npm install --production
 
-# Copy the rest of your code
+# Copy source code
 COPY . .
 
-# Open the port your app runs on (e.g., 3000)
+# Your app listens on port 3000
 EXPOSE 3000
 
-# The command to start the app
-CMD ["node", "server.js"]
+# Run the app
+CMD [ "node", "database.js" ]

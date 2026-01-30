@@ -1,15 +1,17 @@
+let port;
+let reader;
+
 async function login() {
     const usr = document.getElementById('txtUsrName').value
     const pass = document.getElementById('txtPassword').value
 
     try {
-        const fetchRes = await fetch("http://localhost:8000/login", {
+        // CHANGED: Use relative path
+        const fetchRes = await fetch("/login", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify ({
-                username: usr,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                username: usr, // Matches backend req.body.username
                 password: pass
             })
         });
@@ -21,7 +23,6 @@ async function login() {
             return;
         }
 
-        // Backend decides admin vs user
         if (data.isAdmin) {
             window.location.href = "admin.html";
         } else {
@@ -34,19 +35,23 @@ async function login() {
 }
 
 function logout() {
-    window.location.href = "index.html"
+    // 1. Redirect first
+    window.location.href = "index.html";
 
-    document.getElementById("txtUsrName").value = '';
-    document.getElementById("txtPassword").value = '';
+    // 2. Clear fields ONLY if they exist (using the optional chaining we discussed)
+    const userField = document.getElementById("txtUsrName");
+    const passField = document.getElementById("txtPassword");
+
+    if (userField) userField.value = '';
+    if (passField) passField.value = '';
 }
 
 async function LoadUserData() {
     try {
-        const fetchRes = await fetch("http://localhost:8000/user", {
+        // CHANGED: Use relative path
+        const fetchRes = await fetch("/user", {
             method: "GET",
-            headers: {
-                "Content-Type": "application/json"
-            }
+            headers: { "Content-Type": "application/json" }
         });
         const results = await fetchRes.json();
 
@@ -61,17 +66,24 @@ async function LoadUserData() {
             return;
         }
 
-        // Build table headers
         const headers = Object.keys(results[0]);
         let headRow = "<tr>";
         headers.forEach(h => headRow += `<th>${h}</th>`);
         headRow += "</tr>";
         tableHead.innerHTML = headRow;
 
-        // Build table rows
         results.forEach(row => {
             let rowHTML = "<tr>";
             headers.forEach(h => rowHTML += `<td>${row[h]}</td>`);
+            
+            // ADD THIS LINE: It creates a red delete button for each row
+            // We assume your table has a column called 'UserID'
+            rowHTML += `<td>
+                <button class="btn btn-danger btn-sm" onclick="removeUsers(${row.UserID})">
+                    Delete
+                </button>
+            </td>`;
+            
             rowHTML += "</tr>";
             tableBody.innerHTML += rowHTML;
         });
@@ -81,13 +93,16 @@ async function LoadUserData() {
 }
 
 async function addUsers() {
+    // These names match the backend req.body variables exactly
     const user = {
+        userID: document.getElementById("newUserID")?.value, // Added ID
         username: document.getElementById("newUsername").value,
-        firstName: document.getElementById("newFirstName").value,
-        lastName: document.getElementById("newLastName").value
+        password: document.getElementById("newPassword")?.value, // Added Password
+        role: document.getElementById("newRole")?.value, // Added Role
+        assignedAmbulance: document.getElementById("newAmbulance")?.value // Added Ambulance
     };
 
-    const fetchRes = await fetch("http://localhost:8000/users", {
+    const fetchRes = await fetch("/user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(user)
@@ -95,28 +110,32 @@ async function addUsers() {
 
     if (!fetchRes.ok) {
         alert("Failed to add user");
-        return;
+    } else {
+        alert("User added!");
+        LoadUserData();
     }
 }
 
 async function removeUsers(id) {
     if (!confirm("Are you sure want to delete this user?")) return;
 
-    const fetchRes = await fetch("http://localhost:8000/user/${id}", {
+    // FIXED: Use backticks (``) so the ${id} variable actually works
+    const fetchRes = await fetch(`/user/${id}`, {
         method: "DELETE"
     });
 
     if (!fetchRes.ok) {
         alert("Failed to delete user");
-        return;
+    } else {
+        LoadUserData();
     }
 }
 
 async function loadTestData() {
     try {
-        const fetchRes = await fetch("http://localhost:8000/test");
+        // CHANGED: Use relative path
+        const fetchRes = await fetch("/test");
         const data = await fetchRes.json();
-
         const results = data.results;
 
         const tableHead = document.getElementById("tableHead");
@@ -125,19 +144,17 @@ async function loadTestData() {
         tableHead.innerHTML = "";
         tableBody.innerHTML = "";
 
-        if (results.length === 0) {
+        if (!results || results.length === 0) {
             tableBody.innerHTML = "<tr><td>No data found</td></tr>";
             return;
         }
 
-        // Build table headers
         const headers = Object.keys(results[0]);
         let headRow = "<tr>";
         headers.forEach(h => headRow += `<th>${h}</th>`);
         headRow += "</tr>";
         tableHead.innerHTML = headRow;
 
-        // Build table rows
         results.forEach(row => {
             let rowHTML = "<tr>";
             headers.forEach(h => rowHTML += `<td>${row[h]}</td>`);
@@ -147,4 +164,36 @@ async function loadTestData() {
     } catch (err) {
         console.error("Error loading data:", err);
     }
+}
+
+// --- WEB SERIAL LOGIC ---
+
+document.getElementById('connect-btn').addEventListener('click', async () => {
+    try {
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+
+        const textDecoder = new TextDecoderStream();
+        port.readable.pipeTo(textDecoder.writable);
+        reader = textDecoder.readable.getReader();
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            if (value) {
+                console.log("Data from ESP32:", value);
+                sendDataToServer(value); 
+            }
+        }
+    } catch (error) {
+        console.error("Serial Connection Failed:", error);
+    }
+});
+
+async function sendDataToServer(data) {
+    await fetch('/api/logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: data }) // Matches req.body.data in backend
+    });
 }

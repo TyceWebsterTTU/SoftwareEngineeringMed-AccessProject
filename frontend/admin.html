@@ -50,7 +50,35 @@
 
     <div id="section-users" class="container-fluid py-4" style="display:none;">
         <h3>User Management</h3>
-        <p>Edit, add, or remove users.</p>
+        
+        <div class="card mb-4">
+            <div class="card-header bg-light">Add New User</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-2">
+                        <input type="number" id="newUserID" class="form-control" placeholder="User ID">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" id="newUsername" class="form-control" placeholder="Username">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="password" id="newPassword" class="form-control" placeholder="Password">
+                    </div>
+                    <div class="col-md-2">
+                        <select id="newRole" class="form-select">
+                            <option value="User">User</option>
+                            <option value="Admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="number" id="newAmbulance" class="form-control" placeholder="Ambulance #">
+                    </div>
+                    <div class="col-12">
+                        <button class="btn btn-success" onclick="addUsers()">Add User</button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <table class="table table-bordered mt-4">
             <thead id="tableHead"></thead>

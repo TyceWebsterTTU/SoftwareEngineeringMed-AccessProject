@@ -1,0 +1,15 @@
+
+start up:
+docker compose up --build
+
+run in background (USE THIS ONE):
+docker compose up -d
+
+shut down:
+ctrl +c
+docker compose down (USE THIS WHEN DOCKER RUNNING IN BACKGROUND)
+
+
+docker exec -it my-capstone-app-db-1 mysql -u root -p"$MYSQL_ROOT_PASSWORD"
+
+password: root_password
