@@ -9,7 +9,12 @@ shut down:
 ctrl +c
 docker compose down (USE THIS WHEN DOCKER RUNNING IN BACKGROUND)
 
+to access the sql database while web app is running:
 
 docker exec -it my-capstone-app-db-1 mysql -u root -p"$MYSQL_ROOT_PASSWORD"
 
 password: root_password
+
+WEB PAGE CREDENTIALS: 
+    Username: admin
+    Password: password123
