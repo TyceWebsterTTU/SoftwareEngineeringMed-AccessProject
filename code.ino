@@ -1,47 +1,99 @@
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEScan.h>
+#include <ESP32Servo.h>
+#include <Preferences.h>
 
-// 1. PASTE YOUR GENERATED UUID HERE (From the App)
-// Format must be dashed: "12345678-1234-1234-1234-123456789abc"
-static BLEUUID TARGET_UUID("2E9C4DE7-7236-422D-89B3-272E5813879C");
+Preferences preferences;
+BLEUUID TARGET_UUID; // get this from web server
+const int SERVO_PIN = 13;    
+const int RSSI_THRESHOLD = -80;
+int scanTime = 2; 
 
-int scanTime = 5; // Scan for 5 seconds
+Servo myServo;
+bool deviceInRange = false;
+bool wasDeviceInRange = false; 
 
-// 2. Define what to do when a device is found
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
     void onResult(BLEAdvertisedDevice advertisedDevice) {
-      // Check if the device has a Service UUID and if it matches ours
-      if (advertisedDevice.haveServiceUUID() && 
-          advertisedDevice.isAdvertisingService(TARGET_UUID)) {
-            
-        Serial.println("TARGET FOUND!");
-        Serial.print("Device: ");
-        Serial.println(advertisedDevice.toString().c_str());
-        Serial.print("RSSI: ");
-        Serial.println(advertisedDevice.getRSSI()); // Signal Strength
-        
-        // UNLOCK LOGIC GOES HERE (e.g., servo.write(90))
+      if (advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(TARGET_UUID)) {
+        if (advertisedDevice.getRSSI() > RSSI_THRESHOLD) {
+          deviceInRange = true; 
+        }
       }
     }
 };
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("Scanning for target UUID...");
+  ESP32PWM::allocateTimer(0);
+  myServo.setPeriodHertz(50);
+  preferences.begin("dispatch", false);
+  
+  // Default to a placeholder
+  String lastSaved = preferences.getString("target_uuid", "00000000-0000-0000-0000-000000000000");
+  TARGET_UUID = BLEUUID(lastSaved.c_str());
 
-  // 3. Initialize BLE
+  // Start stopped
+  myServo.attach(SERVO_PIN);
+  myServo.write(95); // Specific STOP value
+  delay(200);
+  myServo.detach();  // Completely kill signal for silence
+
   BLEDevice::init("");
-  BLEScan* pBLEScan = BLEDevice::getScan(); //create new scan
+  BLEScan* pBLEScan = BLEDevice::getScan();
   pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
-  pBLEScan->setActiveScan(true); // Active scan uses more power, but gets results faster
-  pBLEScan->setInterval(100);
-  pBLEScan->setWindow(99);  // less or equal setInterval
+  pBLEScan->setActiveScan(true);
 }
 
 void loop() {
-  // 4. Scan repeatedly
+
+  // CHECK FOR UPDATES FROM THE FRONTEND (VIA USB)
+    if (Serial.available() > 0) {
+        String incomingUUID = Serial.readStringUntil('\n');
+        incomingUUID.trim();
+
+        if (incomingUUID.length() > 20) { 
+            // Update the active target
+            TARGET_UUID = BLEUUID(incomingUUID.c_str());
+            
+            // Save to Flash Memory (NVS)
+            preferences.putString("target_uuid", incomingUUID);
+            
+            Serial.println("SYNC_OK: New UUID Saved to Flash");
+        }
+    }
+
+    // REGULAR BLE SCANNING LOGIC
+    deviceInRange = false;
+    BLEDevice::getScan()->start(2, false);
+  deviceInRange = false; 
   BLEDevice::getScan()->start(scanTime, false);
-  BLEDevice::getScan()->clearResults();   // clear buffer to release memory
-  delay(2000);
+  
+  // 1. JUST CONNECTED
+  if (deviceInRange && !wasDeviceInRange) {
+    //Serial.println("Target Found! Moving...");
+    myServo.attach(SERVO_PIN);
+    myServo.write(75);        // Move forward (95 - 20)
+    delay(400);              // Adjust this time for "one full turn"
+    myServo.write(95);        // STOP
+    delay(200);
+    myServo.detach();         // LOCK
+    wasDeviceInRange = true;
+  } 
+  
+  // 2. JUST DISCONNECTED
+  else if (!deviceInRange && wasDeviceInRange) {
+    //Serial.println("Target Lost! Returning...");
+    myServo.attach(SERVO_PIN);
+    myServo.write(115);       // Move backward (95 + 20)
+    delay(400);              // Match the timing above
+    myServo.write(95);        // STOP
+    delay(200);
+    myServo.detach();         // LOCK
+    wasDeviceInRange = false;
+  }
+
+  BLEDevice::getScan()->clearResults();
+  delay(200); 
 }
