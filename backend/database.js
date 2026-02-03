@@ -106,7 +106,9 @@ app.post('/user', async (req, res) => {
 
     try {
         const strQuery = "INSERT INTO tblUsers (UserID, Username, Password, Role, AssignedAmbulance) VALUES (?, ?, ?, ?, ?)";
-        await pool.query(strQuery, [userID, username, password, role, assignedAmbulance]);
+
+        const hashPass = await hashPassword(password, saltRounds)
+        await pool.query(strQuery, [userID, username, hashPass, role, assignedAmbulance]);
         
         res.status(200).json({ status: "Success" });
     } catch (err) {

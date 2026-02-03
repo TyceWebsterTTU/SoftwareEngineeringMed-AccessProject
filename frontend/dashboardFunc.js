@@ -3,6 +3,8 @@ let reader;
 let isArmed = false;
 let checkInterval;
 
+let usersTable = null;
+
 async function login() {
     const usr = document.getElementById('txtUsrName').value;
     const pass = document.getElementById('txtPassword').value;
@@ -31,10 +33,24 @@ async function login() {
         if (data.success) {
             localStorage.setItem('userID', data.user.UserID);
             localStorage.setItem('ambulanceID', data.user.AssignedAmbulance);
+
+            // Extracts the role and makes sure it's exactly the correct role.
+            const rawRole = data.user.Role
+            const role = rawRole.charAt(0).toUpperCase() + rawRole.slice(1).toLowerCase();
             
             // Helpful for debugging: Log the role before redirecting
             console.log("Redirecting user with role:", data.user.Role);
-            window.location.href = data.isAdmin ? "admin.html" : "dashboard.html";
+            if (data.isAdmin || role === 'Admin') {
+                window.location.href = "admin.html";
+            } else if (role === 'Dispatcher') {
+                window.location.href = "dispatcher.html";
+            } else if (role === 'Paramedic') {
+                window.location.href = "dashboard.html";
+            } else {
+                // Fallback in case a role isn't recognized
+                console.error("Unknown role detected:", role);
+                alert("Account setup error: Role not recognized.");
+            }
         } else {
             alert(data.message || "Invalid credentials");
         }
@@ -65,44 +81,38 @@ async function LoadUserData() {
         });
         const results = await fetchRes.json();
 
-        const tableHead = document.getElementById("tableHead");
-        const tableBody = document.getElementById("tableBody");
-
-        tableHead.innerHTML = "";
-        tableBody.innerHTML = "";
+        // Get the DataTable instance
+        if (!usersTable) {
+            usersTable = new DataTable('#tblUsers', {
+                columnDefs: [
+                    { targets: 0, width: "60px", className: "text-center" },  // ID
+                    { targets: 3, width: "100px", className: "text-center" }, // Ambulance
+                    { targets: 4, width: "160px", className: "text-center" }  // Actions
+                ]
+            });
+        }
+        // Clears old data
+        usersTable.clear();
 
         if (results.length === 0) {
-            tableBody.innerHTML = "<tr><td>No data found</td></tr>";
+            usersTable.draw();
             return;
         }
 
-        const headers = Object.keys(results[0]).filter(h => h != 'Password');
-        let headRow = "<tr>";
-        headers.forEach(h => headRow += `<th>${h}</th>`);
-        headRow += "<th>Delete/Edit User</th>";
-        headRow += "</tr>";
-        tableHead.innerHTML = headRow;
-
+        // 3. Add rows using the API
         results.forEach(row => {
-            let rowHTML = "<tr class='text-center'>";
-            headers.forEach(h => rowHTML += `<td class="text-center">${row[h]}</td>`);
-            
-            // ADD THIS LINE: It creates a red delete button for each row
-            // We assume your table has a column called 'UserID'
-            rowHTML += `
-                <td style="width: 150px;">
-                    <div class="d-flex justify-content-center gap-2">
-                        <button class="btn btn-danger d-flex align-items-center px-3" onclick="removeUsers(${row.UserID})">
-                            Delete
-                        </button>
-                        <button class="btn btn-success d-flex align-items-center px-3" onclick="editUsers(${row.UserID})">
-                            Edit
-                        </button>
-                    </div>
-                </td>`;
-            rowHTML += "</tr>";
-            tableBody.innerHTML += rowHTML;
+            usersTable.row.add([
+                row.UserID,
+                row.Username,
+                row.Role,
+                row.AssignedAmbulance || 0,
+                `<div class="d-flex justify-content-center gap-2">
+                    <button class="btn btn-danger btn-sm" onclick="removeUsers(${row.UserID})">Delete</button>
+                    <button class="btn btn-success btn-sm" onclick="editUsers(${row.UserID})">Edit</button>
+                </div>`
+            ]).draw(false); // 'false' keeps the current pagination page
         });
+
     } catch (err) {
         console.error("Error loading data:", err);
     }
@@ -188,10 +198,17 @@ async function saveUserEdits() {
         if (!fetchRes.ok) {
             const err = await fetchRes.json();
             alert("Error: " + err.message);
-        } else {
-            alert("User changes saved!");
-            location.reload();
-        }
+        } 
+
+        // Close the modal
+        const modalEl = document.getElementById('editUserModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        modal.hide();
+
+        // Refresh table data only
+        LoadUserData();
+        // Optional nice UX feedback
+        alert("User changes saved!");
     } catch (err) {
         console.error("Save user edit error:", err);
         alert("Failed to save user changes.");
