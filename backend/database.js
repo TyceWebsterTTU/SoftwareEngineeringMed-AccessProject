@@ -10,12 +10,9 @@ const path = require('path');
 const HTTPS_PORT = 3000
 var app = express()
 
-//pasword shit yippie!!!!!!!!!!!!!!!!!!!!!
+// Password variables
 const saltRounds = 10;
 const regPasswod = `/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/`
-
-
-
 
 
 app.use(express.json())
@@ -37,57 +34,233 @@ const pool = mysql.createPool({
 
 
 // Test Route
-app.get('/test', async (req, res) => {
-    try {
-        // No .connect() needed! Pool handles it automatically.
-        const [results] = await pool.query("SELECT * FROM test");
-        console.log("Query Success:", results);
-        res.status(200).json({ results: results });
-    } catch (err) {
-        console.error("Database Error:", err);
-        res.status(500).json({ error: err.message });
-    }
-});
+//app.get('/test', async (req, res) => {
+//    try {
+//        // No .connect() needed! Pool handles it automatically.
+//        const [results] = await pool.query("SELECT * FROM test");
+//        console.log("Query Success:", results);
+//        res.status(200).json({ results: results });
+//    } catch (err) {
+//        console.error("Database Error:", err);
+//        res.status(500).json({ error: err.message });
+//    }
+//});
 
+/* my original route:
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
+    let sessionID = null;
 
-    // 1. Quick Validation
     if (!username || !password) {
         return res.status(400).json({ success: false, message: "Username and password required" });
     }
 
     try {
-        // 2. Fetch User
-        const [results] = await pool.query("SELECT * FROM tblUsers WHERE Username = ?", [username]);
+        const [userRows] = await pool.query("SELECT * FROM tblUsers WHERE Username = ?", [username]);
 
-        // 3. Check Existence & Password
-        // Using a generic message is a security best practice for finished apps
-        if (results.length === 0 || !passCompare(password, results[0].Password)) {
+        // 1. Check if user exists and password matches
+        if (userRows.length === 0 || !passCompare(password, userRows[0].Password)) {
             console.log(`[Auth] Failed attempt for: ${username}`);
             return res.status(401).json({ success: false, message: "Invalid credentials" });
         }
 
-        const user = results[0];
-        console.log(`[Auth] Login Success: ${username} (Role: ${user.Role})`);
+        const user = userRows[0];
+        console.log("DEBUG: Database Row found ->", user); 
 
-        // 4. Send Clean Response
+        // 2. Attempt to log the session
+        try {
+            const [loginResult] = await pool.query(
+                "INSERT INTO tblLogins (UserID, LastLoginTime, LastLogoutTime) VALUES (?, NOW(), NULL)", 
+                [user.UserID]
+            );
+            
+            if (loginResult && loginResult.insertId) {
+                sessionID = loginResult.insertId;
+                console.log(`[Database] Login record created. SessionID: ${sessionID}`);
+            }    
+        } catch (err) {
+            console.error("[Logging Error]:", err.message);
+            // We don't return here; we still want the user to log in even if logging the session fails
+        }
+
+        // 3. Send the final response
         res.json({
             success: true,
+            sessionID: sessionID,
             user: {
                 UserID: user.UserID,
                 Username: user.Username,
                 Role: user.Role,
-                AssignedAmbulance: user.AssignedAmbulance 
+                AssignedAmbulance: user.AssignedAmbulance,
+                // Make sure this matches your DB casing (ServiceUUID vs serviceUUID)
+                serviceUUID: user.serviceUUID 
             },
             isAdmin: user.Role === "Admin"
         });
 
     } catch (err) {
         console.error("[Database Error]:", err.message);
-        res.status(500).json({ success: false, message: "Server error. Please try again later." });
+        res.status(500).json({ success: false, message: "Server error." });
     }
 });
+*/
+
+/*
+// new route:
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+    let sessionID = null; // 1. Initialize sessionID variable
+
+    try {
+        // --- FETCH USER ---
+        const [rows] = await pool.query("SELECT * FROM tblUsers WHERE Username = ?", [username]);
+        
+        if (rows.length === 0) {
+            console.log("DEBUG: User not found in database.");
+            return res.status(401).json({ success: false, message: "User not found" });
+        }
+
+        const user = rows[0];
+        
+        // DEBUG: Print all columns to ensure 'AssignedAmbulance' is spelled correctly in DB
+        console.log("DEBUG: User Row Keys ->", Object.keys(user)); 
+
+        // --- VALIDATE PASSWORD ---
+        if (!passCompare(password, user.Password)) {
+            return res.status(401).json({ success: false, message: "Invalid password" });
+        }
+
+        // --- CREATE SESSION (Fixes sessionID undefined) ---
+        try {
+            const [loginResult] = await pool.query(
+                "INSERT INTO tblLogins (UserID, LastLoginTime, LastLogoutTime) VALUES (?, NOW(), NULL)", 
+                [user.UserID]
+            );
+            
+            if (loginResult && loginResult.insertId) {
+                sessionID = loginResult.insertId;
+                console.log(`DEBUG: Session Created: ${sessionID}`);
+            }    
+        } catch (logErr) {
+            console.error("DEBUG: Failed to create session record:", logErr.message);
+            // We proceed anyway so the user can still log in, even if tracking fails
+        }
+
+        // --- SEND RESPONSE ---
+        res.json({
+            success: true,
+            sessionID: sessionID,
+            user: {
+                UserID: user.UserID,
+                Username: user.Username,
+                Role: user.Role,
+                AssignedAmbulance: user.AssignedAmbulance,
+                // Make sure this matches your DB casing (ServiceUUID vs serviceUUID)
+                serviceUUID: user.serviceUUID 
+            },
+            isAdmin: user.Role === "Admin"
+        });
+        console.log("FULL login response:", data);
+
+    } catch (err) {
+        console.error("SERVER CRASH ERROR:", err.message);
+        res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+});
+*/
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+    let sessionID = null;
+
+    if (!username || !password) {
+        return res.status(400).json({ success: false, message: "Username and password required" });
+    }
+
+    try {
+        // --- 1. FETCH USER ---
+        const [rows] = await pool.query("SELECT * FROM tblUsers WHERE Username = ?", [username]);
+        
+        if (rows.length === 0) {
+            console.log(`[Auth] User not found: ${username}`);
+            return res.status(401).json({ success: false, message: "Invalid credentials" });
+        }
+
+        const user = rows[0];
+        
+        // This helps us see if 'serviceUUID' or 'ServiceUUID' exists in the DB
+        console.log("DEBUG: DB Column Names found ->", Object.keys(user)); 
+
+        // --- 2. VALIDATE PASSWORD ---
+        if (!passCompare(password, user.Password)) {
+            console.log(`[Auth] Password mismatch for: ${username}`);
+            return res.status(401).json({ success: false, message: "Invalid credentials" });
+        }
+
+        // --- 3. CREATE SESSION ---
+        try {
+            const [loginResult] = await pool.query(
+                "INSERT INTO tblLogins (UserID, LastLoginTime, LastLogoutTime) VALUES (?, NOW(), NULL)", 
+                [user.UserID]
+            );
+            
+            if (loginResult && loginResult.insertId) {
+                sessionID = loginResult.insertId;
+                console.log(`[Database] Session Created: ${sessionID}`);
+            }    
+        } catch (logErr) {
+            console.error("[Logging Error]:", logErr.message);
+        }
+
+        // --- 4. PREPARE & SEND RESPONSE ---
+        const responseData = {
+            success: true,
+            sessionID: sessionID,
+            user: {
+                UserID: user.UserID,
+                Username: user.Username,
+                Role: user.Role,
+                ambulanceID: user.AssignedAmbulance,
+                // SAFETY: Checks both casings to ensure the frontend gets the data
+                serviceUUID: user.serviceUUID || user.ServiceUUID 
+            },
+            isAdmin: user.Role === "Admin"
+        };
+
+        // Log the object we are about to send (Fixes the 'data' ReferenceError)
+        console.log("Sending Login Response:", responseData);
+        
+        res.json(responseData);
+
+    } catch (err) {
+        console.error("[Critical Error]:", err.message);
+        res.status(500).json({ success: false, message: "Internal server error" });
+    }
+});
+
+// Logout timestamp call
+
+//!! NEEDS TO BE TESTED STILL !!\\
+app.put('/logout', async (req, res) => {
+    const { sessionID } = req.body;
+
+    try {
+        await pool.query("UPDATE tblLogins SET LastLogoutTime = NOW() WHERE SessionID = ?", [sessionID])
+        res.status(200).json({
+            status: "Success",
+            message: "Logout time updated successfully"
+        })
+
+    } catch (err) {
+        console.error("Database Error:", err);
+        if(!res.headersSent) {
+            res.status(500).json({ 
+                status: "Error",
+                error: err.message
+            })
+        }
+    }
+})
+
 
 // Get All Users Route
 app.get('/user', async (req, res) => {
@@ -102,13 +275,13 @@ app.get('/user', async (req, res) => {
 
 // Create User Route
 app.post('/user', async (req, res) => {
-    const { userID, username, password, role, assignedAmbulance } = req.body;
+    const { userID, username, password, role, AssignedAmbulance } = req.body;
 
     try {
         const strQuery = "INSERT INTO tblUsers (UserID, Username, Password, Role, AssignedAmbulance) VALUES (?, ?, ?, ?, ?)";
 
         const hashPass = await hashPassword(password, saltRounds)
-        await pool.query(strQuery, [userID, username, hashPass, role, assignedAmbulance]);
+        await pool.query(strQuery, [userID, username, hashPass, role, AssignedAmbulance]);
         
         res.status(200).json({ status: "Success" });
     } catch (err) {
@@ -169,6 +342,22 @@ app.put('/user/:id', async (req, res) => {
     }
 })
 
+app.get('/unitsAvailable', async (req, res) => {
+    console.log("HIT /api/units/available");
+    try {
+        // Pulls only the units that are on shift and available
+        const [unitsAvail] = await pool.query("SELECT * FROM tblAmbulance WHERE ShiftStatus = 1 AND ActiveCall = 0");
+
+        res.json(unitsAvail);
+    } catch (err) {
+        console.log("DB error:", err);
+        res.status(500).json({
+            success: false,
+            message: err.message
+        });
+    }
+})
+
 
 // POST route to save hardware events
 app.post('/api/logs', async (req, res) => {
@@ -191,9 +380,9 @@ app.get('/api/dispatch/status/:ambulanceID', async (req, res) => {
     const { ambulanceID } = req.params;
     try {
         const strQuery = `
-            SELECT a.ActiveCall, u.ServiceUUID 
+            SELECT a.ActiveCall, u.serviceUUID AS serviceUUID 
             FROM tblAmbulance a
-            JOIN tblUsers u ON a.UnitID = u.AssignedAmbulance
+            LEFT JOIN tblUsers u ON a.UnitID = u.AssignedAmbulance
             WHERE a.UnitID = ?`;
             
         const [rows] = await pool.query(strQuery, [ambulanceID]);
@@ -223,6 +412,29 @@ app.post('/api/dispatch/trigger', async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
+
+
+app.get('/box', async (req, res) => {
+    try {
+        const [results] = await pool.query("SELECT * FROM tblCases");
+        res.json(results)
+    } catch(err) {
+        console.error("Fetch Boxes Error:", err);
+        res.status(500).json({error: err.message})
+    }
+})
+
+app.get('/ambulance', async (req, res) => {
+    try {
+        const [results] = await pool.query("SELECT * FROM tblAmbulance");
+        res.json(results)
+    } catch(err) {
+        console.error("Fetch Boxes Error:", err);
+        res.status(500).json({error: err.message})
+    }
+})
+
+
 
 function hashPassword(pass){
     return bcrypt.hash(pass, saltRounds)

@@ -48,12 +48,14 @@
 
     <div id="section-dispatch" class="container-fluid py-4" style="display:none;">
         <h3>Emergency Dispatch</h3>
-        <div class="card bg-light">
+        <div class="card bg-light mb-4">
             <div class="card-body">
                 <div class="row g-3">
                     <div class="col-md-4">
-                        <label>Target Ambulance Unit</label>
-                        <input type="number" id="dispatchUnitID" class="form-control" placeholder="Unit # (e.g. 101)">
+                        <label class="form-label" for="dispatchUnitID">Target Ambulance Unit</label>
+                        <select id="dispatchUnitID" class="form-control">
+                            <option value="">-- Select Available Unit --</option>
+                        </select>
                     </div>
                     <div class="col-md-4">
                         <label>Case ID / Call Number</label>
@@ -65,6 +67,26 @@
                 </div>
             </div>
         </div>
+
+        <div class="row justify-content-center mb-5">
+            <div class="col-12 col-xl-10">
+                <div class="table-responsive shadow rounded-3 overflow-hidden border bg-white text-dark">
+                    <table class="table table-hover table-bordered align-middle text-center mb-0 bg-white table-striped" id="tblAmbulance">
+                        <thead id="tableHead" class="text-center">
+                            <tr>
+                                <th class="text-center">UnitID</th>
+                                <th class="text-center">Shift Status</th>
+                                <th class="text-center">Active</th>
+                                <th class="text-center">CaseID</th>
+                                <th class="text-center">ConnectedESP</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div id="section-users" class="container-fluid py-4" style="display:none;">
@@ -73,17 +95,14 @@
         <div class="card mb-4">
             <div class="card-header bg-light">Add New User</div>
             <div class="card-body">
-                <div class="row g-3">
+                <div class="row g-3 align-items-end">
                     <div class="col-md-2">
-                        <input type="number" id="newUserID" class="form-control" placeholder="User ID">
-                    </div>
-                    <div class="col-md-3">
                         <input type="text" id="newUsername" class="form-control" placeholder="Username">
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <input type="password" id="newPassword" class="form-control" placeholder="Password">
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-3">
                         <select id="newRole" class="form-select">
                             <option value="" disabled-selected>Please select a role</option>
                             <option value="Dispatcher">Dispatcher</option>
@@ -94,8 +113,8 @@
                     <div class="col-md-2">
                         <input type="number" id="newAmbulance" class="form-control" placeholder="Ambulance #">
                     </div>
-                    <div class="col-12">
-                        <button class="btn btn-primary" onclick="addUsers()">Add User</button>
+                    <div class="col-md-3">
+                        <button class="btn btn-primary w-100" onclick="addUsers()">Add User</button>
                     </div>
                 </div>
             </div>
@@ -160,27 +179,38 @@
                 </div>
             </div>
          </div>
-
-        <table class="table table-bordered mt-4">
-            <thead id="tableHead"></thead>
-            <tbody id="tableBody"></tbody>
-        </table>
     </div>
 
     <div id="section-boxes" class="container-fluid py-4" style="display:none;">
         <h3>Box Inventory</h3>
         <p>Track your 1 million boxes here.</p>
-    </div>
-    </div>
-
-
-
+        
+        <div class="row justify-content-center mb-5">
+            <div class="col-12 col-xl-10">
+                <div class="table-responsive shadow rounded-3 overflow-hidden border bg-white text-dark">
+                    <table class="table table-hover table-bordered align-middle text-center mb-0 bg-white table-striped" id="tblCases">
+                        <thead id="tableHead" class="text-center">
+                            <tr>
+                                <th class="text-center">CaseID</th>
+                                <th class="text-center">ESPID</th>
+                                <th class="text-center">Locked</th>
+                                <th class="text-center">Open</th>
+                                <th class="text-center">Needed</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 <script src="lib/jquery-4.0.0.min.js"></script>
 <script src="https://cdn.datatables.net/2.3.7/js/dataTables.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
 <script src="lib/sweetalert2@11.min.js"></script>
-<script src="dashboardFunc.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/uuid/8.3.2/uuid.min.js"></script>
+<script src="functions/adminFunc.js"></script>
 <script>
     //future functions for the buttons go here
     function showSection(sectionId) {
@@ -199,6 +229,12 @@
 
                 if (s === 'users') {
                     LoadUserData();
+                } else if (s == 'dispatch') {
+                    // Calls the available units function until I find a better spot to throw it in our code.
+                    loadAvailableUnits();
+                    LoadAmbulanceData();
+                } else if (s == 'boxes') {
+                    LoadBoxData();
                 }
             } else {
                 // Hide the others
@@ -211,30 +247,3 @@
 </script>
 </body>
 </html>
-<!-- i made all that stuff below before remembering about the bootswatch thingy i want to keep it for a bit-->
-
-<!-- <body class="bg-danger">
-    <h1>Med-Access Admin</h1>
-    <div class="btn-group-vertical" role="group" aria-label="Vertical button group">
-        <button type="button" class="btn btn-primary">Boxes</button>
-        <button type="button" class="btn btn-primary">Users</button>
-        <button type="button" class="btn btn-primary">Dispatch</button>
-    </div>
-    <div id="LoginView" class="d-flex justify-content-center align-items-center vh-100">
-        <div class="card col-12 col-md-5">
-            <div class="card-body">
-            <h2 class="text-center">Med-Access Login</h2>
-
-            <form>
-                <label class="form-label" for="txtUsrName">Username</label>
-                <input class="form-control" id="txtUsrName" type="text">
-                <p></p>
-                <label class="form-label" for="txtPassword">Password</label>
-                <input class="form-control" id="txtPassword" type="password">
-                <p></p>
-                <button id="btnLogin" class="btn btn-primary col-12 mt-2" type="button" onclick="login()">Login</button>
-            </form>
-            </div>
-        </div>
-    </div>
- -->

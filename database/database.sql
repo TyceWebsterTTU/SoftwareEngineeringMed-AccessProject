@@ -1,10 +1,10 @@
 CREATE TABLE `tblUsers` (
-  `UserID` INT,
+  `UserID` varchar(36),
   `Username` VARCHAR(100),
   `Password` VARCHAR(255),
   `Role` VARCHAR(32),
   `AssignedAmbulance` INT,
-  `ServiceUUID` VARCHAR(255),
+  `serviceUUID` VARCHAR(255),
   PRIMARY KEY (`UserID`)
 );
 
@@ -42,10 +42,11 @@ CREATE TABLE `tblCases` (
 );
 
 CREATE TABLE `tblLogins` (
+  `SessionID` INT AUTO_INCREMENT,
   `UserID` INT,
   `LastLoginTime` DATETIME,
   `LastLogoutTime` DATETIME,
-  PRIMARY KEY (`UserID`)
+  PRIMARY KEY (`SessionID`)
 );
 
 CREATE TABLE `tblRoles` (

@@ -49,38 +49,40 @@ void setup() {
 void loop() {
 
   // CHECK FOR UPDATES FROM THE FRONTEND (VIA USB)
-    if (Serial.available() > 0) {
-        String incomingUUID = Serial.readStringUntil('\n');
-        incomingUUID.trim();
+  if (Serial.available() > 0) {
+    String incoming = Serial.readStringUntil('\n');
+    incoming.trim();
+    
+    // DEBUG: Tell the dashboard exactly what was received
+    Serial.print("DEBUG_RECEIVED: ");
+    Serial.println(incoming);
 
-        if (incomingUUID.length() > 20) { 
-            // Update the active target
-            TARGET_UUID = BLEUUID(incomingUUID.c_str());
-            
-            // Save to Flash Memory (NVS)
-            preferences.putString("target_uuid", incomingUUID);
-            
-            Serial.println("SYNC_OK: New UUID Saved to Flash");
-        }
+    if (incoming.startsWith("ARM:")) {
+        String uuidOnly = incoming.substring(4); 
+        TARGET_UUID = BLEUUID(uuidOnly.c_str());
+        preferences.putString("target_uuid", uuidOnly);
+        Serial.println("SYNC_OK");
     }
+  }
 
-    // REGULAR BLE SCANNING LOGIC
-    deviceInRange = false;
-    BLEDevice::getScan()->start(2, false);
-  deviceInRange = false; 
-  BLEDevice::getScan()->start(scanTime, false);
+  // 2. SCANNING
+  deviceInRange = false;
+  // We don't need to print "Starting Scan" every 2 seconds
+  BLEScanResults foundDevices = BLEDevice::getScan()->start(scanTime, false);
   
-  // 1. JUST CONNECTED
+  // 1. JUST CONNECTED (Target found)
   if (deviceInRange && !wasDeviceInRange) {
-    //Serial.println("Target Found! Moving...");
+    // IMPORTANT: Tell the Web App we found it!
+    Serial.println("MATCH_FOUND"); 
+    
     myServo.attach(SERVO_PIN);
-    myServo.write(75);        // Move forward (95 - 20)
-    delay(400);              // Adjust this time for "one full turn"
-    myServo.write(95);        // STOP
+    myServo.write(75);        
+    delay(400);              
+    myServo.write(95);        
     delay(200);
-    myServo.detach();         // LOCK
+    myServo.detach();         
     wasDeviceInRange = true;
-  } 
+  }
   
   // 2. JUST DISCONNECTED
   else if (!deviceInRange && wasDeviceInRange) {

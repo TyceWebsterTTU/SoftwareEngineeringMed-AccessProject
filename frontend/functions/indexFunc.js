@@ -4,12 +4,25 @@ let isArmed = false;
 let checkInterval;
 
 let usersTable = null;
+let boxesTable = null;
+let ambulanceTable = null;
+
+
+class LineBreakTransformer {
+    constructor() { this.container = ''; }
+    transform(chunk, controller) {
+        this.container += chunk;
+        const lines = this.container.split('\n');
+        this.container = lines.pop();
+        lines.forEach(line => controller.enqueue(line));
+    }
+    flush(controller) { controller.enqueue(this.container); }
+}
 
 async function login() {
     const usr = document.getElementById('txtUsrName').value;
     const pass = document.getElementById('txtPassword').value;
 
-    // Basic validation to prevent unnecessary network calls
     if (!usr || !pass) {
         alert("Please enter both username and password");
         return;
@@ -22,32 +35,44 @@ async function login() {
             body: JSON.stringify({ username: usr, password: pass })
         });
 
-        // Check if the server actually sent back JSON
         const contentType = fetchRes.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
             throw new TypeError("Oops, we didn't get JSON back from the server!");
         }
 
         const data = await fetchRes.json();
+        console.log("Login Response Data:", data); // Debugging: See what the server sent
 
         if (data.success) {
+            // Store common user data
             localStorage.setItem('userID', data.user.UserID);
-            localStorage.setItem('ambulanceID', data.user.AssignedAmbulance);
+            localStorage.setItem('ambulanceID', data.user.ambulanceID);
+            localStorage.setItem('sessionID', data.sessionID);
+            localStorage.setItem('Role', data.user.Role);
+            // SAVE SERVICE UUID (Check casing from backend)
+            // We use a fallback here just in case the backend uses lowercase
+            const uuid = data?.user?.serviceUUID;
+            if (uuid) {
+                localStorage.setItem('serviceUUID', uuid);
+            } else {
+                console.warn("UUID not found in server response!");
+            }
+            
+            
+            console.log("Stored UUID in Browser:", localStorage.getItem('serviceUUID'));
 
-            // Extracts the role and makes sure it's exactly the correct role.
-            const rawRole = data.user.Role
+            const rawRole = data.user.Role;
             const role = rawRole.charAt(0).toUpperCase() + rawRole.slice(1).toLowerCase();
             
-            // Helpful for debugging: Log the role before redirecting
-            console.log("Redirecting user with role:", data.user.Role);
+            console.log("Redirecting user with role:", role);
+            
             if (data.isAdmin || role === 'Admin') {
                 window.location.href = "admin.html";
             } else if (role === 'Dispatcher') {
                 window.location.href = "dispatcher.html";
             } else if (role === 'Paramedic') {
-                window.location.href = "dashboard.html";
+                window.location.href = "paramedic.html";
             } else {
-                // Fallback in case a role isn't recognized
                 console.error("Unknown role detected:", role);
                 alert("Account setup error: Role not recognized.");
             }
@@ -56,11 +81,16 @@ async function login() {
         }
     } catch (err) {
         console.error("Critical Login Error:", err);
-        alert("Connection failed. Make sure you are accessing the site via port 3000.");
+        alert("Connection failed. Check your Node.js server logs.");
     }
 }
 
-function logout() {
+
+async function logout() {
+    // Update logout timestamp
+    await updateLogout();
+    localStorage.clear();
+
     // 1. Redirect first
     window.location.href = "index.html";
 
@@ -70,6 +100,30 @@ function logout() {
 
     if (userField) userField.value = '';
     if (passField) passField.value = '';
+}
+
+async function updateLogout() {
+    const sessionID = localStorage.getItem('sessionID');
+ 
+    if (!sessionID) {
+        console.warn("No active session found");
+        return;
+    }
+ 
+    try {
+        const fetchRes = await fetch('/logout', {
+            method: "PUT",
+            headers: { "Content-Type": "application/json"},
+            body: JSON.stringify({ sessionID: sessionID })
+        })
+
+        if (!fetchRes.ok) {
+            console.error("Server rejected logout update:", fetchRes.status);
+        }
+ 
+    } catch (err) {
+        console.error("Error:", err)
+    }
 }
 
 async function LoadUserData() {
@@ -118,14 +172,130 @@ async function LoadUserData() {
     }
 }
 
+async function LoadBoxData() {
+    try {
+        // CHANGED: Use relative path
+        const fetchRes = await fetch("/box", {
+            method: "GET",
+            headers: { "Content-Type": "application/json" }
+        });
+        const results = await fetchRes.json();
+        console.log("Box Results:", results);
+
+
+        // Get the DataTable instance
+        if (!boxesTable) {
+            boxesTable = new DataTable('#tblCases', {
+                columnDefs: [
+                    { targets: 0, width: "60px", className: "text-center" }, 
+                    { targets: 1, width: "100px", className: "text-center" }, 
+                    { targets: 2, width: "100px", className: "text-center" },
+                    { targets: 3, width: "100px", className: "text-center" },
+                    { targets: 4, width: "100px", className: "text-center" }
+                ]
+            });
+        }
+        // Clears old data
+        boxesTable.clear();
+
+        if (results.length === 0) {
+            boxesTable.draw();
+            return;
+        }
+
+        // 3. Add rows using the API
+        results.forEach(row => {
+            boxesTable.row.add([
+                row.CaseID,
+                row.ESPID,
+                row.Locked,
+                row.Open,
+                row.Needed
+            ]).draw(false); // 'false' keeps the current pagination page
+        });
+    } catch (err) {
+        console.error("Error loading data:", err);
+    }
+}
+
+async function LoadAmbulanceData() {
+    try {
+        // CHANGED: Use relative path
+        const fetchRes = await fetch("/ambulance", {
+            method: "GET",
+            headers: { "Content-Type": "application/json" }
+        });
+        const results = await fetchRes.json();
+        console.log("Ambulance Results:", results);
+
+
+        // Get the DataTable instance
+        if (!ambulanceTable) {
+            ambulanceTable = new DataTable('#tblAmbulance', {
+                columnDefs: [
+                    { targets: "_all", className: "text-center" }
+                ]
+            });
+        }
+        // Clears old data
+        ambulanceTable.clear();
+
+        if (results.length === 0) {
+            ambulanceTable.draw();
+            return;
+        }
+
+        // 3. Add rows using the API
+        results.forEach(row => {
+            ambulanceTable.row.add([
+                row.UnitID,
+                row.ShiftStatus,
+                row.ActiveCall,
+                row.CaseID,
+                row.ConnectedESP
+            ]).draw(false); // 'false' keeps the current pagination page
+        });
+    } catch (err) {
+        console.error("Error loading data:", err);
+    }
+}
+
+// Pulls the list of ambulance units that are currently available and loads them to the dropodown Target Ambulance Unit for the user to select
+async function loadAvailableUnits() {
+    const dropdown = document.getElementById('dispatchUnitID');
+    if(!dropdown) return; // Don't run if the dropdown isn't on the page'
+
+    try {
+        const fetchRes = await fetch('/unitsAvailable', {
+            method: "GET",
+            headers: { "Content-Type": "application/json" }
+        });
+        const availableUnits = await fetchRes.json();
+        console.log("Available Units Response:", availableUnits);
+
+        dropdown.innerHTML = '<option value="">-- Select Available Unit --</option>';
+
+        availableUnits.forEach(unit => {
+            const option = document.createElement('option');
+
+            option.value = unit.UnitID;
+            option.textContent = `Unit #${unit.UnitID}`;
+            dropdown.appendChild(option);
+        });
+    } catch (err) {
+        console.error("Load available unit error:", err);
+        alert("Failed to open load available unit dialog.");
+    }
+}
+
 async function addUsers() {
     // These names match the backend req.body variables exactly
     const user = {
-        userID: document.getElementById("newUserID")?.value, // Added ID
+        userID: uuid(), // Added ID
         username: document.getElementById("newUsername").value,
         password: document.getElementById("newPassword")?.value, // Added hashed Password
         role: document.getElementById("newRole")?.value, // Added Role
-        assignedAmbulance: document.getElementById("newAmbulance")?.value // Added Ambulance
+        AssignedAmbulance: document.getElementById("newAmbulance")?.value // Added Ambulance
     };
 
     const fetchRes = await fetch("/user", {
@@ -215,47 +385,11 @@ async function saveUserEdits() {
     }
 
 }
-
-async function loadTestData() {
-    try {
-        // CHANGED: Use relative path
-        const fetchRes = await fetch("/test");
-        const data = await fetchRes.json();
-        const results = data.results;
-
-        const tableHead = document.getElementById("tableHead");
-        const tableBody = document.getElementById("tableBody");
-
-        tableHead.innerHTML = "";
-        tableBody.innerHTML = "";
-
-        if (!results || results.length === 0) {
-            tableBody.innerHTML = "<tr><td>No data found</td></tr>";
-            return;
-        }
-
-        const headers = Object.keys(results[0]);
-        let headRow = "<tr>";
-        headers.forEach(h => headRow += `<th>${h}</th>`);
-        headRow += "</tr>";
-        tableHead.innerHTML = headRow;
-
-        results.forEach(row => {
-            let rowHTML = "<tr>";
-            headers.forEach(h => rowHTML += `<td>${row[h]}</td>`);
-            rowHTML += "</tr>";
-            tableBody.innerHTML += rowHTML;
-        });
-    } catch (err) {
-        console.error("Error loading data:", err);
-    }
-}
     //Web Serial Logic
 /**
  * 1. CONNECT TO ESP32
  * Triggered by the "Connect" button in your HTML.
  */
-// Wrap the listener so it doesn't crash on the login page
 const connectBtn = document.getElementById('connect-btn');
 
 if (connectBtn) {
@@ -264,23 +398,45 @@ if (connectBtn) {
         const terminal = document.getElementById('live-terminal');
         
         try {
-            port = await navigator.serial.requestPort();
-            await port.open({ baudRate: 115200 });
+            // 1. If we don't have a port object yet, ask the user to pick one
+            if (!port) {
+                port = await navigator.serial.requestPort();
+            }
+
+            // 2. CHECK: If the port is already open, don't call .open() again
+            if (port.writable && port.readable) {
+                console.log("Port is already open and active.");
+            } else {
+                await port.open({ baudRate: 115200 });
+            }
             
             statusLabel.innerText = "Connected";
             statusLabel.className = "badge bg-success fs-6";
             terminal.innerHTML += `<div class="text-info">> Hardware Linked. System ready for Dispatch.</div>`;
 
-            const textDecoder = new TextDecoderStream();
-            port.readable.pipeTo(textDecoder.writable);
-            reader = textDecoder.readable.getReader();
+            // 3. Setup the Pipe - only if the reader doesn't exist yet
+            if (!reader) {
+                const textDecoder = new TextDecoderStream();
+                port.readable.pipeTo(textDecoder.writable);
+                const inputStream = textDecoder.readable;
 
-            listenToESP32();
+                reader = inputStream
+                    .pipeThrough(new TransformStream(new LineBreakTransformer()))
+                    .getReader();
+
+                listenToESP32();
+            }
+
         } catch (error) {
-            console.error("Serial Connection Failed:", error);
-            if(statusLabel) {
-                statusLabel.innerText = "Connection Failed";
-                statusLabel.className = "badge bg-danger fs-6";
+            // Handle the specific case where the user cancels the popup
+            if (error.name === 'NotFoundError') {
+                console.log("User cancelled the port selection.");
+            } else {
+                console.error("Serial Connection Failed:", error);
+                if(statusLabel) {
+                    statusLabel.innerText = "Connection Failed";
+                    statusLabel.className = "badge bg-danger fs-6";
+                }
             }
         }
     });
@@ -321,24 +477,16 @@ async function listenToESP32() {
  * 3. SEND "ARM" COMMAND TO ESP32 (OUTGOING)
  * This is called when your Dispatch Logic detects an active call.
  */
-async function armNarcoticsBox(paramedicUUID) {
-    if (port && port.writable) {
+async function armNarcoticsBox(uuid) {
+    if (writer) {
         const encoder = new TextEncoder();
-        const writer = port.writable.getWriter();
-        
-        // Send "ARM:" prefix so ESP32 knows to switch to Scan Mode
-        const command = `ARM:${paramedicUUID}\n`;
-        await writer.write(encoder.encode(command));
-        
-        const terminal = document.getElementById('live-terminal');
-        terminal.innerHTML += `<div class="text-warning">> ARMING: Searching for UUID ${paramedicUUID}...</div>`;
-        
-        writer.releaseLock();
-        isArmed = true;
-    } else {
-        console.error("Cannot arm: ESP32 not connected via Web Serial.");
+        // The \n is CRITICAL. Without it, the ESP32 won't trigger readStringUntil
+        const data = encoder.encode(`ARM:${uuid}\n`); 
+        await writer.write(data);
+        console.log("Sent to ESP32: ARM:" + uuid);
     }
 }
+
 
 /**
  * 4. LOG DATA TO MYSQL
@@ -366,44 +514,35 @@ async function sendDataToServer(dataString) {
 
 
 // This runs every 5 seconds to check for new dispatch calls
-function startDispatchPolling() {
+async function startDispatchPolling() {
     const ambulanceID = localStorage.getItem('ambulanceID');
-    
-    if (!ambulanceID) {
-        console.error("No Ambulance ID found. Polling cannot start.");
-        return;
-    }
+    if (!ambulanceID) return;
 
     setInterval(async () => {
         try {
-            // Ask the backend for the current status of this ambulance
             const response = await fetch(`/api/dispatch/status/${ambulanceID}`);
-            const status = await response.json();
-
-            // Logic: If a call is active and we haven't armed the box yet
-            if (status.ActiveCall > 0 && !isArmed) {
-                console.log("NEW CALL DETECTED: Arming Box...");
-                
-                // Trigger the Web Serial command to the ESP32
-                armNarcoticsBox(status.ServiceUUID); 
-            } 
             
-            // Optional: If the call is cleared (ActiveCall returns to 0)
-            else if (status.ActiveCall === 0 && isArmed) {
-                isArmed = false;
-                console.log("Call Cleared. Box Standby.");
+            // CHECK FOR 404/500 BEFORE PARSING
+            if (!response.ok) {
+                console.warn(`API returned error: ${response.status}`);
+                return; // Stop here so we don't trigger the Syntax Error
+            }
+
+            const status = await response.json();
+            if (status.ActiveCall === 1 && !isArmed) {
+                armNarcoticsBox(status.serviceUUID);
             }
         } catch (err) {
-            console.error("Polling error:", err);
+            console.error("Polling Error:", err);
         }
-    }, 5000); 
+    }, 5000);
 }
 
 
 
 // Call this when the dashboard loads
 if (window.location.pathname.includes("dashboard.html")) {
-    startStatusCheck();
+    startDispatchPolling();
 }
 
 async function triggerDispatch() {
@@ -430,3 +569,6 @@ async function triggerDispatch() {
         console.error("Dispatch Error:", err);
     }
 }
+
+
+
