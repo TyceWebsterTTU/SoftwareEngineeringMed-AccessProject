@@ -7,6 +7,12 @@ let usersTable = null;
 let boxesTable = null;
 let ambulanceTable = null;
 
+// Function to handle the toggle change
+function toggleNarcotics() {
+    isArmed = document.getElementById('narcoticsToggle').checked;
+    console.log("System Arm Status", isArmed);
+}
+
 async function logout() {
     // Update logout timestamp
     await updateLogout()
@@ -304,11 +310,14 @@ async function saveUserEdits() {
 
 }
 
-async function triggerDispatch() {
-    const unitID = document.getElementById('dispatchUnitID').value;
-    const caseID = document.getElementById('dispatchCaseID').value;
+async function triggerDispatch(isManualClick = true) {
+    const unitID = parseInt(document.getElementById('dispatchUnitID').value);
+    const caseID = parseInt(document.getElementById('dispatchCaseID').value);
+    const assignmentValue = document.getElementById('assignmentType').value;
 
-    if (!unitID || !caseID) {
+    const requiresNarcotics = (assignmentValue == "1");
+
+    if (isManualClick && (!unitID || !caseID)) {
         alert("Please enter both a Unit ID and a Case ID.");
         return;
     }
@@ -317,13 +326,22 @@ async function triggerDispatch() {
         const response = await fetch("/api/dispatch/trigger", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ unitID, caseID })
+            body: JSON.stringify({ 
+                unitID: unitID, 
+                caseID: caseID, 
+                requiresNarcotics: requiresNarcotics
+            })
         });
 
         const data = await response.json();
         if (data.success) {
-            alert(`Unit ${unitID} has been dispatched to Case ${caseID}`);
+            alert(`Unit ${unitID} has been dispatched to Case ${caseID}. Narcotics Armed: ${requiresNarcotics ? 'ARMED' : 'OFF'}`);
         }
+
+        console.log("SENDING TO SERVER:", { unitID, caseID, requiresNarcotics });
+
+        LoadAmbulanceData();
+        LoadBoxData();
     } catch (err) {
         console.error("Dispatch Error:", err);
     }

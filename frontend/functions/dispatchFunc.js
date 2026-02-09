@@ -127,3 +127,40 @@ async function LoadAmbulanceData() {
         console.error("Error loading data:", err);
     }
 }
+
+async function triggerDispatch(isManualClick = true) {
+    const unitID = parseInt(document.getElementById('dispatchUnitID').value);
+    const caseID = parseInt(document.getElementById('dispatchCaseID').value);
+    const assignmentValue = document.getElementById('assignmentType').value;
+
+    const requiresNarcotics = (assignmentValue == "1");
+
+    if (isManualClick && (!unitID || !caseID)) {
+        alert("Please enter both a Unit ID and a Case ID.");
+        return;
+    }
+
+    try {
+        const response = await fetch("/api/dispatch/trigger", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                unitID: unitID, 
+                caseID: caseID, 
+                requiresNarcotics: requiresNarcotics
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            alert(`Unit ${unitID} has been dispatched to Case ${caseID}. Narcotics Armed: ${requiresNarcotics ? 'ARMED' : 'OFF'}`);
+        }
+
+        console.log("SENDING TO SERVER:", { unitID, caseID, requiresNarcotics });
+
+        LoadAmbulanceData();
+        LoadBoxData();
+    } catch (err) {
+        console.error("Dispatch Error:", err);
+    }
+}

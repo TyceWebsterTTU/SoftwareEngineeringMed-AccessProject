@@ -398,20 +398,49 @@ app.get('/api/dispatch/status/:ambulanceID', async (req, res) => {
 });
 
 app.post('/api/dispatch/trigger', async (req, res) => {
-    const { unitID, caseID } = req.body;
+    const { unitID, caseID, requiresNarcotics } = req.body;
 
     try {
-        // Update the ambulance table to reflect an active call
-        const strQuery = "UPDATE tblAmbulance SET ActiveCall = ? WHERE UnitID = ?";
-        await pool.query(strQuery, [caseID, unitID]);
+        const sqlCaseID = parseInt(caseID);
+        const neededValue = requiresNarcotics ? 1 : 0;
 
-        console.log(`DISPATCH: Unit ${unitID} assigned to Case ${caseID}`);
+        console.log(`Executing SQL with: Case:${sqlCaseID}, Unit:${unitID}, Needed:${neededValue}`);
+
+        const updateCase = "INSERT INTO tblCases (CaseID, ESPID, Locked, `Open`, Needed) VALUES (?, '0', 1, 0, ?) ON DUPLICATE KEY UPDATE Needed = ?, Locked = 1";
+        await pool.query(updateCase, [sqlCaseID, neededValue, neededValue]);
+
+        // Update the ambulance table to reflect an active call
+        const strQuery = "UPDATE tblAmbulance SET ActiveCall = 1, CaseID = ? WHERE UnitID = ?";
+        const [results] = await pool.query(strQuery, [caseID, unitID]);
+
+        console.log("Rows affected in Ambulance:", results.affectedRows);
+        console.log(`[Dispatch] Success: Unit ${unitID} assigned to Case ${caseID}.`);
         res.json({ success: true });
     } catch (err) {
         console.error("Update Error:", err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
+
+app.get('/api/hardware/status/:unitID', async (req, res) => {
+    const { unitID } = req.params;
+    try {
+        const strQuery = `SELECT ActiveCall, Needed, Locked FROM tblAmbulance LEFT JOIN tblCases ON tblAmbulance.CaseID = tblCases.CaseID WHERE UnitID = ?`;
+        const [rows] = await pool.query(strQuery, [unitID]);
+
+        if(rows.length > 0) {
+            res.json({
+                active: rows[0].ActiveCall > 0,
+                armNarcotics: rows[0].Needed == 1,
+                isLocked: rows[0].Locked == 1
+            });
+        } else {
+            res.status(404).json({ error: "Unit not assigned" });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+})
 
 
 app.get('/box', async (req, res) => {

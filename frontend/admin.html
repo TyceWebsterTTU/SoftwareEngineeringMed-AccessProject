@@ -50,19 +50,26 @@
         <h3>Emergency Dispatch</h3>
         <div class="card bg-light mb-4">
             <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-4">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
                         <label class="form-label" for="dispatchUnitID">Target Ambulance Unit</label>
                         <select id="dispatchUnitID" class="form-control">
                             <option value="">-- Select Available Unit --</option>
                         </select>
                     </div>
-                    <div class="col-md-4">
-                        <label>Case ID / Call Number</label>
+                    <div class="col-md-3">
+                        <label class="form-label" for="dispatcherCaseID">Case ID / Call Number</label>
                         <input type="number" id="dispatchCaseID" class="form-control" placeholder="Case # (e.g. 5502)">
                     </div>
-                    <div class="col-md-4 d-flex align-items-end">
-                        <button class="btn btn-danger w-100" onclick="triggerDispatch()">Dispatch Unit</button>
+                    <div class="col-md-3">
+                        <label class="form-label text-dark" for="assignmentType">Assignment Type</label>
+                        <select id="assignmentType" class="form-control">
+                            <option value="1">Narcotics Controlled</option>
+                            <option value="2">General Medical</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button class="btn btn-danger w-100" onclick="triggerDispatch(true)">Dispatch Unit</button>
                     </div>
                 </div>
             </div>
