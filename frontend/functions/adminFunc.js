@@ -1,17 +1,14 @@
 let port;
 let reader;
-let isArmed = false;
-let checkInterval;
+
+
 
 let usersTable = null;
 let boxesTable = null;
 let ambulanceTable = null;
 
 // Function to handle the toggle change
-function toggleNarcotics() {
-    isArmed = document.getElementById('narcoticsToggle').checked;
-    console.log("System Arm Status", isArmed);
-}
+
 
 async function logout() {
     // Update logout timestamp
@@ -33,19 +30,23 @@ async function updateLogout() {
     const sessionID = localStorage.getItem('sessionID');
  
     if (!sessionID) {
-        console.error("No active session found");
+        console.warn("No active session found");
         return;
     }
  
     try {
         const fetchRes = await fetch('/logout', {
-            method: "POST",
+            method: "PUT",
             headers: { "Content-Type": "application/json"},
-            body: JSON.stringify({ sessionID })
+            body: JSON.stringify({ sessionID: sessionID })
         })
+
+        if (!fetchRes.ok) {
+            console.error("Server rejected logout update:", fetchRes.status);
+        }
  
     } catch (err) {
-        console.err("Error:", err)
+        console.error("Error:", err)
     }
 }
 
@@ -214,7 +215,7 @@ async function loadAvailableUnits() {
 async function addUsers() {
     // These names match the backend req.body variables exactly
     const user = {
-        userID: uuid.v4(), // Added ID
+        UserID: uuid.v4(), // Added ID
         username: document.getElementById("newUsername").value,
         password: document.getElementById("newPassword")?.value, // Added hashed Password
         role: document.getElementById("newRole")?.value, // Added Role
@@ -231,6 +232,10 @@ async function addUsers() {
         alert("Failed to add user");
     } else {
         alert("User added!");
+        // --- CLEAR FIELDS HERE ---
+        document.getElementById('newUsername').value = '';
+        document.getElementById('newPassword').value = '';
+        document.getElementById('assignedAmbulance').value = '';
         LoadUserData();
     }
 }
@@ -250,12 +255,12 @@ async function removeUsers(id) {
     }
 }
 
-function editUsers(userID) {
+function editUsers(UserID) {
     try {
         //Find the row in the table that has this ID
-        const row = document.querySelector(`button[onclick="editUsers('${userID}')"]`).closest("tr").children;
+        const row = document.querySelector(`button[onclick="editUsers('${UserID}')"]`).closest("tr").children;
 
-        document.getElementById("editUserID").value = userID
+        document.getElementById("editUserID").value = UserID
         
         //Populate your HTML modal fields
          document.getElementById("editUsername").value = row[1].textContent;
@@ -273,7 +278,7 @@ function editUsers(userID) {
 }
 
 async function saveUserEdits() {
-    const userID = document.getElementById("editUserID").value;
+    const UserID = document.getElementById("editUserID").value;
     const updatedUser = {
         username: document.getElementById("editUsername").value,
         password: document.getElementById("editPassword").value,
@@ -282,7 +287,7 @@ async function saveUserEdits() {
     };
 
     try {
-        const fetchRes = await fetch(`/user/${userID}`, {
+        const fetchRes = await fetch(`/user/${UserID}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json"},
             body: JSON.stringify(updatedUser)

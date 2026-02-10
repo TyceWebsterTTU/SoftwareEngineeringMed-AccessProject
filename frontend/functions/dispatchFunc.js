@@ -42,7 +42,6 @@ async function updateLogout() {
 }
 
 async function LoadUserData() {
-    
     try {
         // CHANGED: Use relative path
         const fetchRes = await fetch("/user", {
@@ -86,7 +85,6 @@ async function LoadUserData() {
 }
 
 async function LoadAmbulanceData() {
-    
     try {
         // CHANGED: Use relative path
         const fetchRes = await fetch("/ambulance", {

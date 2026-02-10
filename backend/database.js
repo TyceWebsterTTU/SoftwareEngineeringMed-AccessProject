@@ -46,128 +46,8 @@ const pool = mysql.createPool({
 //    }
 //});
 
-/* my original route:
-app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-    let sessionID = null;
 
-    if (!username || !password) {
-        return res.status(400).json({ success: false, message: "Username and password required" });
-    }
-
-    try {
-        const [userRows] = await pool.query("SELECT * FROM tblUsers WHERE Username = ?", [username]);
-
-        // 1. Check if user exists and password matches
-        if (userRows.length === 0 || !passCompare(password, userRows[0].Password)) {
-            console.log(`[Auth] Failed attempt for: ${username}`);
-            return res.status(401).json({ success: false, message: "Invalid credentials" });
-        }
-
-        const user = userRows[0];
-        console.log("DEBUG: Database Row found ->", user); 
-
-        // 2. Attempt to log the session
-        try {
-            const [loginResult] = await pool.query(
-                "INSERT INTO tblLogins (UserID, LastLoginTime, LastLogoutTime) VALUES (?, NOW(), NULL)", 
-                [user.UserID]
-            );
-            
-            if (loginResult && loginResult.insertId) {
-                sessionID = loginResult.insertId;
-                console.log(`[Database] Login record created. SessionID: ${sessionID}`);
-            }    
-        } catch (err) {
-            console.error("[Logging Error]:", err.message);
-            // We don't return here; we still want the user to log in even if logging the session fails
-        }
-
-        // 3. Send the final response
-        res.json({
-            success: true,
-            sessionID: sessionID,
-            user: {
-                UserID: user.UserID,
-                Username: user.Username,
-                Role: user.Role,
-                AssignedAmbulance: user.AssignedAmbulance,
-                // Make sure this matches your DB casing (ServiceUUID vs serviceUUID)
-                serviceUUID: user.serviceUUID 
-            },
-            isAdmin: user.Role === "Admin"
-        });
-
-    } catch (err) {
-        console.error("[Database Error]:", err.message);
-        res.status(500).json({ success: false, message: "Server error." });
-    }
-});
-*/
-
-/*
-// new route:
-app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-    let sessionID = null; // 1. Initialize sessionID variable
-
-    try {
-        // --- FETCH USER ---
-        const [rows] = await pool.query("SELECT * FROM tblUsers WHERE Username = ?", [username]);
-        
-        if (rows.length === 0) {
-            console.log("DEBUG: User not found in database.");
-            return res.status(401).json({ success: false, message: "User not found" });
-        }
-
-        const user = rows[0];
-        
-        // DEBUG: Print all columns to ensure 'AssignedAmbulance' is spelled correctly in DB
-        console.log("DEBUG: User Row Keys ->", Object.keys(user)); 
-
-        // --- VALIDATE PASSWORD ---
-        if (!passCompare(password, user.Password)) {
-            return res.status(401).json({ success: false, message: "Invalid password" });
-        }
-
-        // --- CREATE SESSION (Fixes sessionID undefined) ---
-        try {
-            const [loginResult] = await pool.query(
-                "INSERT INTO tblLogins (UserID, LastLoginTime, LastLogoutTime) VALUES (?, NOW(), NULL)", 
-                [user.UserID]
-            );
-            
-            if (loginResult && loginResult.insertId) {
-                sessionID = loginResult.insertId;
-                console.log(`DEBUG: Session Created: ${sessionID}`);
-            }    
-        } catch (logErr) {
-            console.error("DEBUG: Failed to create session record:", logErr.message);
-            // We proceed anyway so the user can still log in, even if tracking fails
-        }
-
-        // --- SEND RESPONSE ---
-        res.json({
-            success: true,
-            sessionID: sessionID,
-            user: {
-                UserID: user.UserID,
-                Username: user.Username,
-                Role: user.Role,
-                AssignedAmbulance: user.AssignedAmbulance,
-                // Make sure this matches your DB casing (ServiceUUID vs serviceUUID)
-                serviceUUID: user.serviceUUID 
-            },
-            isAdmin: user.Role === "Admin"
-        });
-        console.log("FULL login response:", data);
-
-    } catch (err) {
-        console.error("SERVER CRASH ERROR:", err.message);
-        res.status(500).json({ success: false, message: "Internal Server Error" });
-    }
-});
-*/
+// Login connection
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     let sessionID = null;
@@ -187,7 +67,7 @@ app.post('/login', async (req, res) => {
 
         const user = rows[0];
         
-        // This helps us see if 'serviceUUID' or 'ServiceUUID' exists in the DB
+        // This helps us see if 'ServiceUUID' or 'ServiceUUID' exists in the DB
         console.log("DEBUG: DB Column Names found ->", Object.keys(user)); 
 
         // --- 2. VALIDATE PASSWORD ---
@@ -219,9 +99,9 @@ app.post('/login', async (req, res) => {
                 UserID: user.UserID,
                 Username: user.Username,
                 Role: user.Role,
-                ambulanceID: user.AssignedAmbulance,
+                UnitID: user.AssignedAmbulance,
                 // SAFETY: Checks both casings to ensure the frontend gets the data
-                serviceUUID: user.serviceUUID || user.ServiceUUID 
+                ServiceUUID: user.ServiceUUID || user.ServiceUUID 
             },
             isAdmin: user.Role === "Admin"
         };
@@ -238,8 +118,6 @@ app.post('/login', async (req, res) => {
 });
 
 // Logout timestamp call
-
-//!! NEEDS TO BE TESTED STILL !!\\
 app.put('/logout', async (req, res) => {
     const { sessionID } = req.body;
 
@@ -275,13 +153,13 @@ app.get('/user', async (req, res) => {
 
 // Create User Route
 app.post('/user', async (req, res) => {
-    const { userID, username, password, role, AssignedAmbulance } = req.body;
+    const { UserID, username, password, role, AssignedAmbulance } = req.body;
 
     try {
         const strQuery = "INSERT INTO tblUsers (UserID, Username, Password, Role, AssignedAmbulance) VALUES (?, ?, ?, ?, ?)";
 
         const hashPass = await hashPassword(password, saltRounds)
-        await pool.query(strQuery, [userID, username, hashPass, role, AssignedAmbulance]);
+        await pool.query(strQuery, [UserID, username, hashPass, role, AssignedAmbulance]);
         
         res.status(200).json({ status: "Success" });
     } catch (err) {
@@ -292,10 +170,10 @@ app.post('/user', async (req, res) => {
 
 // Add this to backend/database.js
 app.delete('/user/:id', async (req, res) => {
-    const userID = req.params.id;
+    const UserID = req.params.id;
     try {
         const strQuery = "DELETE FROM tblUsers WHERE UserID = ?";
-        await pool.query(strQuery, [userID]);
+        await pool.query(strQuery, [UserID]);
         res.status(200).json({ status: "Success" });
     } catch (err) {
         console.error("Delete User Error:", err);
@@ -305,11 +183,11 @@ app.delete('/user/:id', async (req, res) => {
 
 // Allows admin to update/edit users
 app.put('/user/:id', async (req, res) => {
-    const userID = req.params.id;
+    const UserID = req.params.id;
     const { username, password, role, ambulanceNum } = req.body;
 
     try {
-        console.log("Updating User ID:", userID);
+        console.log("Updating User ID:", UserID);
 
         //Hash the password ONLY if one is provided
         let hashedPassword = null;
@@ -322,7 +200,7 @@ app.put('/user/:id', async (req, res) => {
             hashedPassword,
             role || null,
             ambulanceNum || null,
-            userID
+            UserID
         ];
 
         /*if (updates.length == 0) {
@@ -342,6 +220,7 @@ app.put('/user/:id', async (req, res) => {
     }
 })
 
+// GET route to find available Ambulances for dispatch on a call
 app.get('/unitsAvailable', async (req, res) => {
     console.log("HIT /api/units/available");
     try {
@@ -361,13 +240,13 @@ app.get('/unitsAvailable', async (req, res) => {
 
 // POST route to save hardware events
 app.post('/api/logs', async (req, res) => {
-    const { data, userID } = req.body; 
+    const { data, UserID } = req.body; 
     try {
         // Ensure your tblLogs has these columns (LogID is usually AUTO_INCREMENT)
         const strQuery = "INSERT INTO tblLogs (UserID, RawData) VALUES (?, ?)";
-        await pool.query(strQuery, [userID, data]);
+        await pool.query(strQuery, [UserID, data]);
         
-        console.log(`Log Saved: User ${userID} - ${data}`);
+        console.log(`Log Saved: User ${UserID} - ${data}`);
         res.status(200).json({ status: "Success" });
     } catch (err) {
         console.error("Database Error (Logging):", err);
@@ -376,16 +255,20 @@ app.post('/api/logs', async (req, res) => {
 });
 
 // GET route to check for active calls and get the target UUID
-app.get('/api/dispatch/status/:ambulanceID', async (req, res) => {
-    const { ambulanceID } = req.params;
+app.get('/api/dispatch/status/:UnitID', async (req, res) => {
+    const { UnitID } = req.params;
     try {
         const strQuery = `
-            SELECT a.ActiveCall, u.serviceUUID AS serviceUUID 
+            SELECT 
+                a.ActiveCall, 
+                u.ServiceUUID, 
+                c.Needed -- This is your new column
             FROM tblAmbulance a
             LEFT JOIN tblUsers u ON a.UnitID = u.AssignedAmbulance
+            LEFT JOIN tblCases c ON a.CaseID = c.CaseID 
             WHERE a.UnitID = ?`;
             
-        const [rows] = await pool.query(strQuery, [ambulanceID]);
+        const [rows] = await pool.query(strQuery, [UnitID]);
         
         if (rows.length > 0) {
             res.json(rows[0]);
@@ -397,6 +280,8 @@ app.get('/api/dispatch/status/:ambulanceID', async (req, res) => {
     }
 });
 
+
+// 
 app.post('/api/dispatch/trigger', async (req, res) => {
     const { unitID, caseID, requiresNarcotics } = req.body;
 
@@ -422,6 +307,7 @@ app.post('/api/dispatch/trigger', async (req, res) => {
     }
 });
 
+// 
 app.get('/api/hardware/status/:unitID', async (req, res) => {
     const { unitID } = req.params;
     try {
@@ -463,6 +349,32 @@ app.get('/ambulance', async (req, res) => {
     }
 })
 
+// Audit box / changes "Needed" in tblCases
+app.put('/case', async (req, res) => {
+    const { caseID } = req.body.caseID
+
+    try {
+        let strQuery = "SELECT Needed FROM tblCases WHERE CaseID = ?"
+        const [results] = await pool.query(strQuery, [caseID])
+
+        let needed = results[0].Needed
+
+        try {
+            strQuery = "UPDATE tblCases SET Needed = ? WHERE CaseID = ?"
+            [results] = await pool.query(strQuery, [!needed, caseID])
+            res.json({ 
+                status: success,
+                results: results
+            })
+        } catch(err) {
+            console.error("Server error:", err);
+            res.status(500).json({ message: "Server error" });
+        }
+
+    } catch(err) {
+        res.status(500).json({ error: err.message });
+    }
+})
 
 
 function hashPassword(pass){

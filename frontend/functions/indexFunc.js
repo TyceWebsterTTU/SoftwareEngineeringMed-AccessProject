@@ -1,7 +1,7 @@
 let port;
 let reader;
-let isArmed = false;
-let checkInterval;
+
+
 
 let usersTable = null;
 let boxesTable = null;
@@ -45,21 +45,21 @@ async function login() {
 
         if (data.success) {
             // Store common user data
-            localStorage.setItem('userID', data.user.UserID);
-            localStorage.setItem('ambulanceID', data.user.ambulanceID);
+            localStorage.setItem('UserID', data.user.UserID);
+            localStorage.setItem('UnitID', data.user.UnitID);
             localStorage.setItem('sessionID', data.sessionID);
             localStorage.setItem('Role', data.user.Role);
             // SAVE SERVICE UUID (Check casing from backend)
             // We use a fallback here just in case the backend uses lowercase
-            const uuid = data?.user?.serviceUUID;
+            const uuid = data?.user?.ServiceUUID;
             if (uuid) {
-                localStorage.setItem('serviceUUID', uuid);
+                localStorage.setItem('ServiceUUID', uuid);
             } else {
                 console.warn("UUID not found in server response!");
             }
             
             
-            console.log("Stored UUID in Browser:", localStorage.getItem('serviceUUID'));
+            console.log("Stored UUID in Browser:", localStorage.getItem('ServiceUUID'));
 
             const rawRole = data.user.Role;
             const role = rawRole.charAt(0).toUpperCase() + rawRole.slice(1).toLowerCase();
@@ -291,7 +291,7 @@ async function loadAvailableUnits() {
 async function addUsers() {
     // These names match the backend req.body variables exactly
     const user = {
-        userID: uuid(), // Added ID
+        UserID: uuid(), // Added ID
         username: document.getElementById("newUsername").value,
         password: document.getElementById("newPassword")?.value, // Added hashed Password
         role: document.getElementById("newRole")?.value, // Added Role
@@ -327,13 +327,13 @@ async function removeUsers(id) {
     }
 }
 
-function editUsers(userID) {
+function editUsers(UserID) {
     try {
         //Find the row in the table that has this ID
-        const row = document.querySelector(`button[onclick="editUsers(${userID})"]`).closest("tr").children;
+        const row = document.querySelector(`button[onclick="editUsers(${UserID})"]`).closest("tr").children;
         
         //Populate your HTML modal fields
-        document.getElementById("editUserID").value = userID;
+        document.getElementById("editUserID").value = UserID;
         document.getElementById("editUsername").value = row[1].textContent;
         document.getElementById('editPassword').value = "";
         document.getElementById("editRole").value = row[2].textContent;
@@ -349,7 +349,7 @@ function editUsers(userID) {
 }
 
 async function saveUserEdits() {
-    const userID = document.getElementById("editUserID").value;
+    const UserID = document.getElementById("editUserID").value;
     const updatedUser = {
         username: document.getElementById("editUsername").value,
         password: document.getElementById("editPassword").value,
@@ -358,7 +358,7 @@ async function saveUserEdits() {
     };
 
     try {
-        const fetchRes = await fetch(`/user/${userID}`, {
+        const fetchRes = await fetch(`/user/${UserID}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json"},
             body: JSON.stringify(updatedUser)
@@ -446,32 +446,7 @@ if (connectBtn) {
  * 2. LISTEN FOR INCOMING DATA
  * Handles strings like "MATCH_FOUND" sent from the ESP32 hardware.
  */
-async function listenToESP32() {
-    const terminal = document.getElementById('live-terminal');
-    
-    try {
-        while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            if (value) {
-                const timestamp = new Date().toLocaleTimeString();
-                terminal.innerHTML += `<div>[${timestamp}] ${value}</div>`;
-                terminal.scrollTop = terminal.scrollHeight;
 
-                // Handle the specific "Success" signal from your ESP32
-                if (value.includes("MATCH_FOUND")) {
-                    terminal.innerHTML += `<div class="text-success fw-bold">> ACCESS GRANTED: Phone Detected.</div>`;
-                    isArmed = false; // Reset arming state
-                    
-                    // Log the success to your MySQL database
-                    sendDataToServer("Access Granted: Box Opened via BLE");
-                }
-            }
-        }
-    } catch (err) {
-        console.error("Read error:", err);
-    }
-}
 
 /**
  * 3. SEND "ARM" COMMAND TO ESP32 (OUTGOING)
@@ -494,15 +469,15 @@ async function armNarcoticsBox(uuid) {
  */
 async function sendDataToServer(dataString) {
     try {
-        // Grab current userID from session (ensure you set this during login!)
-        const userID = localStorage.getItem('userID') || 0;
+        // Grab current UserID from session (ensure you set this during login!)
+        const UserID = localStorage.getItem('UserID') || 0;
 
         await fetch('/api/logs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 data: dataString,
-                userID: userID
+                UserID: UserID
             })
         });
     } catch (err) {
@@ -514,29 +489,7 @@ async function sendDataToServer(dataString) {
 
 
 // This runs every 5 seconds to check for new dispatch calls
-async function startDispatchPolling() {
-    const ambulanceID = localStorage.getItem('ambulanceID');
-    if (!ambulanceID) return;
 
-    setInterval(async () => {
-        try {
-            const response = await fetch(`/api/dispatch/status/${ambulanceID}`);
-            
-            // CHECK FOR 404/500 BEFORE PARSING
-            if (!response.ok) {
-                console.warn(`API returned error: ${response.status}`);
-                return; // Stop here so we don't trigger the Syntax Error
-            }
-
-            const status = await response.json();
-            if (status.ActiveCall === 1 && !isArmed) {
-                armNarcoticsBox(status.serviceUUID);
-            }
-        } catch (err) {
-            console.error("Polling Error:", err);
-        }
-    }, 5000);
-}
 
 
 

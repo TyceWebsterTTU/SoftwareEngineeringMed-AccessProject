@@ -4,7 +4,7 @@ CREATE TABLE `tblUsers` (
   `Password` VARCHAR(255),
   `Role` VARCHAR(32),
   `AssignedAmbulance` INT,
-  `serviceUUID` VARCHAR(255),
+  `ServiceUUID` VARCHAR(255),
   PRIMARY KEY (`UserID`)
 );
 

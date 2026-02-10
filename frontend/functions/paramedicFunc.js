@@ -1,14 +1,16 @@
-let port;
-let reader;
-let isArmed = false;
-let checkInterval;
+let port = null;
+let reader = null;
+let hasSentArmCommand = false;
+
 // On page load, check if we already have permission for a port
 // Define port at the top level so your polling function can see it later
-let serialPort = null;
+
 
 let usersTable = null;
 let boxesTable = null;
 let ambulanceTable = null;
+
+
 
 class LineBreakTransformer {
     constructor() { this.container = ''; }
@@ -69,7 +71,7 @@ async function setupSerialReader() {
         const statusLabel = document.getElementById('serial-status');
         const terminal = document.getElementById('live-terminal');
 
-        if (!serialPort.readable) return;
+        if (!port.readable) return;
 
         // Update UI
         if (statusLabel) {
@@ -82,7 +84,7 @@ async function setupSerialReader() {
 
         // Set up text decoding & line reading
         const textDecoder = new TextDecoderStream();
-        serialPort.readable.pipeTo(textDecoder.writable);
+        port.readable.pipeTo(textDecoder.writable);
         const inputStream = textDecoder.readable;
 
         reader = inputStream
@@ -105,10 +107,10 @@ window.addEventListener('load', async () => {
         const ports = await navigator.serial.getPorts();
         if (ports.length > 0) {
             console.log("Found an authorized port. Attempting auto-connect...");
-            serialPort = ports[0];
+            port = ports[0];
 
-            if (!serialPort.readable) {
-                await serialPort.open({ baudRate: 115200 });
+            if (!port.readable) {
+                await port.open({ baudRate: 115200 });
                 console.log("Auto-connected to hardware!");
             }
 
@@ -118,21 +120,22 @@ window.addEventListener('load', async () => {
         console.warn("Auto-connect failed:", err);
     }
 
+
     // --- STEP 2: Manual connect via button ---
     if (connectBtn) {
         connectBtn.addEventListener('click', async () => {
             // Guard clause: already connected
-            if (serialPort && serialPort.readable) {
+            if (port && port.readable) {
                 console.log("Port already open. No action needed.");
                 return;
             }
 
             try {
-                if (!serialPort) {
-                    serialPort = await navigator.serial.requestPort();
+                if (!port) {
+                    port = await navigator.serial.requestPort();
                 }
 
-                await serialPort.open({ baudRate: 115200 });
+                await port.open({ baudRate: 115200 });
                 console.log("Connected manually via button click!");
 
                 await setupSerialReader();
@@ -167,13 +170,14 @@ async function listenToESP32() {
                 terminal.innerHTML += `<div>[${timestamp}] ${value}</div>`;
                 terminal.scrollTop = terminal.scrollHeight;
 
-                // Handle the specific "Success" signal from your ESP32
                 if (value.includes("MATCH_FOUND")) {
                     terminal.innerHTML += `<div class="text-success fw-bold">> ACCESS GRANTED: Phone Detected.</div>`;
-                    isArmed = false; // Reset arming state
                     
-                    // Log the success to your MySQL database
-                    sendDataToServer("Access Granted: Box Opened via BLE");
+                    // We DO NOT set hasSentArmCommand to false here.
+                    // We DO NOT set Needed to 0 here.
+                    // This keeps the system in an "Armed" state as long as the call is active.
+
+                    sendDataToServer("Access Event: Box opened by authorized phone.");
                 }
             }
         }
@@ -187,7 +191,19 @@ async function listenToESP32() {
  * This is called when your Dispatch Logic detects an active call.
  */
 async function armNarcoticsBox(paramedicUUID) {
-    const cleanUUID = paramedicUUID.trim(); // Keep original casing first
+    // 1. Safety Check: If UUID is null/undefined, stop immediately
+    if (!paramedicUUID) {
+        console.error("Cannot arm: paramedicUUID is null or undefined.");
+        return;
+    }
+
+    // 2. Now it is safe to trim because we know it's a string
+    const cleanUUID = paramedicUUID.trim(); 
+    console.log("Current Port State:", port);
+    if (port) {
+        console.log("Is Port Writable?:", port.writable);
+    }
+
     if (!port || !port.writable) {
         console.error("ESP32 not connected.");
         return;
@@ -196,7 +212,6 @@ async function armNarcoticsBox(paramedicUUID) {
     const writer = port.writable.getWriter();
     const encoder = new TextEncoder();
     
-    // Explicitly add \n so ESP32's readStringUntil('\n') triggers
     const data = encoder.encode("ARM:" + cleanUUID + "\n");
     
     try {
@@ -215,15 +230,15 @@ async function armNarcoticsBox(paramedicUUID) {
  */
 async function sendDataToServer(dataString) {
     try {
-        // Grab current userID from session (ensure you set this during login!)
-        const userID = localStorage.getItem('userID') || 0;
+        // Grab current UserID from session (ensure you set this during login!)
+        const UserID = localStorage.getItem('UserID') || 0;
 
         await fetch('/api/logs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 data: dataString,
-                userID: userID
+                UserID: UserID
             })
         });
     } catch (err) {
@@ -232,73 +247,38 @@ async function sendDataToServer(dataString) {
 }
 
 
-// This runs every 5 seconds to check for new dispatch calls
 function startDispatchPolling() {
     setInterval(async () => {
-        const ambulanceID = localStorage.getItem('ambulanceID');
+        const UnitID = localStorage.getItem('UnitID');
+        if (!UnitID) return;
 
-        if (!ambulanceID || ambulanceID === "undefined") {
-        console.error("No Ambulance ID found. Polling cannot start.");
-        return;
-    }
         try {
-            // Ask the backend for the current status of this ambulance
-            const response = await fetch(`/api/dispatch/status/${ambulanceID}`);
-
-            if (!response.ok) {
-                console.error(`Backend returned ${response.status} for ID: ${ambulanceID}`);
-                return;
-            }
+            const response = await fetch(`/api/dispatch/status/${UnitID}`);
+            if (!response.ok) return;
 
             const status = await response.json();
-
-            // Logic: If a call is active and we haven't armed the box yet
-            if (status.ActiveCall > 0 && !isArmed) {
+            
+            // Logic: Call is active AND database says narcotics are 'Needed'
+            if (status.ActiveCall > 0 && status.Needed === 1 && !hasSentArmCommand) {
+                console.log("Narcotics Needed for Case. Arming...");
                 
-                
-                console.log("Found UUID:", status.serviceUUID);
-                armNarcoticsBox(status.serviceUUID);
+                if (port && port.writable) {
+                    armNarcoticsBox(status.ServiceUUID);
+                    hasSentArmCommand = true;
+                } else {
+                    console.warn("Hardware not connected, but narcotics are needed!");
+                }
             } 
             
-            // Optional: If the call is cleared (ActiveCall returns to 0)
-            else if (status.ActiveCall === 0 && isArmed) {
-                isArmed = false;
-                console.log("Call Cleared. Box Standby.");
+            // Reset: If call is cleared OR dispatcher changes 'Needed' back to 0
+            else if (status.ActiveCall === 0 || status.Needed === 0) {
+                if (hasSentArmCommand) {
+                    console.log("System Reset: Case cleared or narcotics no longer needed.");
+                    hasSentArmCommand = false;
+                }
             }
         } catch (err) {
             console.error("Polling error:", err);
         }
     }, 5000); 
-}
-
-
-
-// Call this when the dashboard loads
-//if (window.location.pathname.includes("ambulance.html")) {
-//    startStatusCheck();
-//}
-
-async function triggerDispatch() {
-    const unitID = document.getElementById('dispatchUnitID').value;
-    const caseID = document.getElementById('dispatchCaseID').value;
-
-    if (!unitID || !caseID) {
-        alert("Please enter both a Unit ID and a Case ID.");
-        return;
-    }
-
-    try {
-        const response = await fetch("/api/dispatch/trigger", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ unitID, caseID })
-        });
-
-        const data = await response.json();
-        if (data.success) {
-            alert(`Unit ${unitID} has been dispatched to Case ${caseID}`);
-        }
-    } catch (err) {
-        console.error("Dispatch Error:", err);
-    }
 }
