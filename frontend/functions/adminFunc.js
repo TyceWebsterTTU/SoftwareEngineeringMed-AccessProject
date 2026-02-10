@@ -1,14 +1,10 @@
 let port;
 let reader;
 
-
-
+let loginTable = null;
 let usersTable = null;
 let boxesTable = null;
 let ambulanceTable = null;
-
-// Function to handle the toggle change
-
 
 async function logout() {
     // Update logout timestamp
@@ -47,6 +43,46 @@ async function updateLogout() {
  
     } catch (err) {
         console.error("Error:", err)
+    }
+}
+
+async function LoadLoginData() {
+    try {
+        // CHANGED: Use relative path
+        const fetchRes = await fetch("/loadLoginData", {
+            method: "GET",
+            headers: { "Content-Type": "application/json" }
+        });
+        const results = await fetchRes.json();
+
+        // Get the DataTable instance
+        if (!loginTable) {
+            loginTable = new DataTable('#tblLogins', {
+                columnDefs: [
+                    { targets: 0, width: "60px", className: "text-center" },
+                    { targets: 1, width: "100px", className: "text-center" },
+                    { targets: 2, width: "160px", className: "text-center" } 
+                ]
+            });
+        }
+        // Clears old data
+        loginTable.clear();
+
+        if (results.length === 0) {
+            loginTable.draw();
+            return;
+        }
+
+        // 3. Add rows using the API
+        results.forEach(row => {
+            loginTable.row.add([
+                row.UserID,
+                row.LastLoginTime,
+                row.LastLogoutTime
+            ]).draw(false); // 'false' keeps the current pagination page
+        });
+    } catch (err) {
+        console.error("Error loading data:", err);
     }
 }
 
@@ -176,7 +212,11 @@ async function LoadAmbulanceData() {
                 row.ShiftStatus,
                 row.ActiveCall,
                 row.CaseID,
-                row.ConnectedESP
+                row.ConnectedESP,
+                `<div class="d-flex justify-content-center gap-2">
+                    <button class="btn btn-danger btn-sm" onclick="removeUnit('${row.UserID}')">Delete</button>
+                    <button class="btn btn-success btn-sm" onclick="editUsers('${row.UserID}')">Edit</button>
+                </div>`
             ]).draw(false); // 'false' keeps the current pagination page
         });
     } catch (err) {
