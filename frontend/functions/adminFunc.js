@@ -6,6 +6,8 @@ let usersTable = null;
 let boxesTable = null;
 let ambulanceTable = null;
 
+LoadLoginData();
+
 async function logout() {
     // Update logout timestamp
     await updateLogout()
@@ -48,12 +50,15 @@ async function updateLogout() {
 
 async function LoadLoginData() {
     try {
+        console.log("Calling LoadLoginData")
         // CHANGED: Use relative path
-        const fetchRes = await fetch("/loadLoginData", {
+        const fetchRes = await fetch("/loginData", {
             method: "GET",
             headers: { "Content-Type": "application/json" }
         });
+        console.log(fetchRes)
         const results = await fetchRes.json();
+        console.log(results)
 
         // Get the DataTable instance
         if (!loginTable) {
@@ -214,14 +219,114 @@ async function LoadAmbulanceData() {
                 row.CaseID,
                 row.ConnectedESP,
                 `<div class="d-flex justify-content-center gap-2">
-                    <button class="btn btn-danger btn-sm" onclick="removeUnit('${row.UserID}')">Delete</button>
-                    <button class="btn btn-success btn-sm" onclick="editUsers('${row.UserID}')">Edit</button>
+                    <button class="btn btn-danger btn-sm" onclick="removeUnit('${row.UnitID}')">Delete</button>
+                    <button class="btn btn-success btn-sm" onclick="editUnits('${row.UnitID}')">Edit</button>
                 </div>`
             ]).draw(false); // 'false' keeps the current pagination page
         });
     } catch (err) {
         console.error("Error loading data:", err);
     }
+}
+
+async function addUnit() {
+    const unit = {
+        UnitID: document.getElementById("newUnitID").value,
+        CaseID: document.getElementById("newCaseID").value,
+        ConnectedESP: document.getElementById("newESP32ID").value
+    };
+
+    const fetchRes = await fetch("/api/unit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(unit)
+    });
+
+    if (!fetchRes.ok) {
+        alert("Failed to add unit");
+    } else {
+        alert("Unit added!");
+        // --- CLEAR FIELDS HERE ---
+        document.getElementById('newUnitID').value = '';
+        document.getElementById('newCaseID').value = '';
+        document.getElementById('newESP32ID').value = '';
+        LoadAmbulanceData();
+    }
+}
+
+async function removeUnit(id) {
+    if (!confirm("Are you sure want to delete this user?")) return;
+
+    // FIXED: Use backticks (``) so the ${id} variable actually works
+    const fetchRes = await fetch(`/unit/${id}`, {
+        method: "DELETE"
+    });
+
+    if (!fetchRes.ok) {
+        alert("Failed to delete unit");
+    } else {
+        LoadAmbulanceData();
+    }
+}
+
+function editUnits(UnitID) {
+    try {
+        //Find the row in the table that has this ID
+        const row = document.querySelector(`button[onclick="editUnits('${UnitID}')"]`).closest("tr").children;
+
+        document.getElementById("editUnitID").value = UnitID
+        
+        //Populate your HTML modal fields
+        document.getElementById("editShiftStatus").value = row[1].textContent;
+        document.getElementById('editActiveCall').value = row[2].textContent;
+        document.getElementById("editCaseID").value = row[3].textContent;
+        document.getElementById("editConnectedESP").value = row[4].textContent;
+
+        // Open the bootstrap modal you already have in your HTML
+        const myModal = new bootstrap.Modal(document.getElementById('editUnitModal'));
+        myModal.show();
+    } catch (err) {
+        console.error("Edit unit error:", err);
+        alert("Failed to open edit unit dialog.");
+    }
+}
+
+async function saveUnitEdits() {
+    const UnitID = document.getElementById("editUnitID").value;
+    const updatedUnit = {
+        ShiftStatus: document.getElementById("editShiftStatus").value,
+        ActiveCall: document.getElementById("editActiveCall").value,
+        CaseID: document.getElementById("editCaseID").value,
+        ConnectedESP: document.getElementById("editConnectedESP").value
+    };
+
+    try {
+        const fetchRes = await fetch(`/unit/${UnitID}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json"},
+            body: JSON.stringify(updatedUnit)
+        })
+
+        // Check if server sent something back
+        if (!fetchRes.ok) {
+            const err = await fetchRes.json();
+            alert("Error: " + err.message);
+        } 
+
+        // Close the modal
+        const modalEl = document.getElementById('editUnitModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        modal.hide();
+
+        // Refresh table data only
+        LoadAmbulanceData();
+        // Optional nice UX feedback
+        alert("Unit changes saved!");
+    } catch (err) {
+        console.error("Save unit edit error:", err);
+        alert("Failed to save unit changes.");
+    }
+
 }
 
 // Pulls the list of ambulance units that are currently available and loads them to the dropodown Target Ambulance Unit for the user to select
@@ -303,7 +408,7 @@ function editUsers(UserID) {
         document.getElementById("editUserID").value = UserID
         
         //Populate your HTML modal fields
-         document.getElementById("editUsername").value = row[1].textContent;
+        document.getElementById("editUsername").value = row[1].textContent;
         document.getElementById('editPassword').value = "";
         document.getElementById("editRole").value = row[2].textContent;
         document.getElementById("editAmbulanceNum").value = row[3].textContent;

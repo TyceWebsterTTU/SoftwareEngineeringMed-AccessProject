@@ -224,6 +224,30 @@ async function armNarcoticsBox(paramedicUUID) {
     }
 }
 
+async function disarmNarcoticsBox() {
+    if (!port || !port.writable) {
+        console.error("Cannot disarm: ESP32 not connected.");
+        return;
+    }
+
+    const writer = port.writable.getWriter();
+    const encoder = new TextEncoder();
+    
+    // We send a specific DISARM command. 
+    // The \n is critical so the ESP32 knows the message is over.
+    const data = encoder.encode("DISARM\n");
+    
+    try {
+        await writer.write(data);
+        console.log("SENT TO ESP32: DISARM");
+        hasSentArmCommand = false; // Reset our local tracker
+    } catch (err) {
+        console.error("Serial Write Error (Disarm):", err);
+    } finally {
+        writer.releaseLock();
+    }
+}
+
 /**
  * LOG DATA TO MYSQL
  * Forwards hardware events to your Proxmox backend.
@@ -273,8 +297,8 @@ function startDispatchPolling() {
             // Reset: If call is cleared OR dispatcher changes 'Needed' back to 0
             else if (status.ActiveCall === 0 || status.Needed === 0) {
                 if (hasSentArmCommand) {
-                    console.log("System Reset: Case cleared or narcotics no longer needed.");
-                    hasSentArmCommand = false;
+                    console.log("Database cleared. Sending DISARM to hardware...");
+                    disarmNarcoticsBox();
                 }
             }
         } catch (err) {

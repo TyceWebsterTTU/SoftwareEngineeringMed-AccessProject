@@ -168,6 +168,16 @@ app.post('/user', async (req, res) => {
     }
 });
 
+// Get login/logout information
+app.get('/loginData', async (req, res) => {
+    try {
+        const [results] = await pool.query("SELECT UserID, LastLoginTime, LastLogoutTime FROM tblLogins")
+        res.json(results)
+    } catch(err) {
+         return res.status(500).json({Error: err.message})
+    }
+})
+
 // Add this to backend/database.js
 app.delete('/user/:id', async (req, res) => {
     const UserID = req.params.id;
@@ -219,6 +229,65 @@ app.put('/user/:id', async (req, res) => {
         res.status(500).json({ message: "Server error" });
     }
 })
+
+// Create Unit Route
+app.post('/api/unit', async (req, res) => {
+    const { UnitID, CaseID, ConnectedESP } = req.body;
+
+    try {
+        const strQuery = "INSERT INTO tblAmbulance (UnitID, ShiftStatus, ActiveCall, CaseID, ConnectedESP) VALUES (?, 1, 0, ?, ?)";
+        await pool.query(strQuery, [UnitID, CaseID, ConnectedESP]);
+        
+        res.status(200).json({ status: "Success" });
+    } catch (err) {
+        console.error("Insert Unit Error:", err);
+        res.status(404).json({ status: "Failed", error: err.message });
+    }
+});
+
+app.delete('/unit/:id', async (req, res) => {
+    const UnitID = req.params.id;
+    try {
+        const strQuery = "DELETE FROM tblAmbulance WHERE UnitID = ?";
+        await pool.query(strQuery, [UnitID]);
+        res.status(200).json({ status: "Success" });
+    } catch (err) {
+        console.error("Delete User Error:", err);
+        res.status(500).json({ status: "Failed", error: err.message });
+    }
+});
+
+//Update Units Route
+app.put('/unit/:id', async (req, res) => {
+    const UnitID = req.params.id;
+    const { ShiftStatus, ActiveCall, CaseID, ConnectedESP } = req.body;
+
+    try {
+        const values = [
+            ShiftStatus,
+            ActiveCall,
+            CaseID,
+            ConnectedESP,
+            UnitID
+        ];
+
+        /*if (updates.length == 0) {
+            return res.status(400).json({ message: "No fields provided" })
+        } */
+
+        const strQuery = `UPDATE tblAmbulance SET ShiftStatus = COALESCE(?, ShiftStatus), ActiveCall = COALESCE(?, ActiveCall), CaseID = COALESCE(?, CaseID), ConnectedESP = COALESCE(?, ConnectedESP) WHERE UnitID = ?`;
+
+        const [result] = await pool.query(strQuery, values);
+        if (result.affectedRows == 0) {
+            return res.status(404).json({ message: "Unit not found" });
+        }
+        res.json({ success: true });
+    } catch (err) {
+        console.error("Server error:", err);
+        res.status(500).json({ message: "Server error" });
+    }
+})
+
 
 // GET route to find available Ambulances for dispatch on a call
 app.get('/unitsAvailable', async (req, res) => {

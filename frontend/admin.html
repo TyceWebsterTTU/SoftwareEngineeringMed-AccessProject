@@ -48,7 +48,7 @@
                         <table class="table table-hover table-bordered align-middle text-center mb-0 bg-white table-striped" id="tblLogins">
                             <thead id="tableHead" class="text-center">
                                 <tr>
-                                    <th class="text-center">UnitID</th>
+                                    <th class="text-center">UserID</th>
                                     <th class="text-center">LastLoginTime</th>
                                     <th class="text-center">LastLogoutTime</th>
                                 </tr>
@@ -129,6 +129,41 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div class="modal fade" id="editUnitModal" tabIndex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-dark">Edit Unit</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <input type="hidden" id="editUnitID">
+
+                <div class="mb-2 text-dark">
+                    <label for="editShiftStatus">Shift Status</label>
+                    <input type="text" id="editShiftStatus" class="form-control">
+
+                    <label for="editActiveCall">Active Call</label>
+                    <input type="text" id="editActiveCall" class="form-control">
+
+                    <label for="editCaseID">CaseID</label>
+                    <input type="text" id="editCaseID" class="form-control">
+
+                    <label for="editConnectedESP">Connected ESP32</label>
+                    <input type="text" id="editConnectedESP" class="form-control">
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveUnitEdits()">Save</button>
+            </div>
+        </div>
+    </div>
     </div>
 
     <div id="section-users" class="container-fluid py-4" style="display:none;">
@@ -268,10 +303,14 @@
                 sectionEl.style.display = 'block';
                 // Add the active highlight to the nav button
                 navEl.classList.add('active');
-
-                if (s === 'users') {
+                if (s == 'home') {
+                    console.log("Home")
+                    //LoadLoginData();
+                } else if (s === 'users') {
+                    console.log("Users")
                     LoadUserData();
                 } else if (s == 'dispatch') {
+                    console.log("Dispatch")
                     // Calls the available units function until I find a better spot to throw it in our code.
                     loadAvailableUnits();
                     LoadAmbulanceData();

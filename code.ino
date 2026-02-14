@@ -56,7 +56,7 @@ void setup() {
 }
 
 void loop() {
-  // SERIAL COMMANDS
+  // 1. ALWAYS check Serial first (this stays fast)
   if (Serial.available() > 0) {
     String incoming = Serial.readStringUntil('\n');
     incoming.trim();
@@ -64,10 +64,8 @@ void loop() {
     if (incoming.startsWith("ARM:")) {
       targetUuidStr = incoming.substring(4);
       targetUuidStr.trim();
-
       preferences.putString("target_uuid", targetUuidStr);
       armed = true;
-
       Serial.print("CONFIRM_ARM:");
       Serial.println(targetUuidStr);
     }
@@ -75,29 +73,42 @@ void loop() {
     if (incoming == "DISARM") {
       armed = false;
       wasDeviceInRange = false;
+      // Force stop any active scan immediately
+      BLEDevice::getScan()->stop(); 
+      Serial.println("DISARMED");
+    }
+
+    if ((incoming == "DISARM") && (wasDeviceInRange)) {
+      armed = false;
+      wasDeviceInRange = false;
+      // Force stop any active scan immediately
+      operateServo(false);
+      BLEDevice::getScan()->stop(); 
       Serial.println("DISARMED");
     }
   }
 
-  // BLE SCANNING — ONLY WHEN ARMED
-  if (armed) {
-    deviceInRange = false;
-
-    BLEDevice::getScan()->start(scanTime, false);
+    // 2. BLE SCANNING — ONLY WHEN ARMED
+    if (armed) {
+    BLEScan* pBLEScan = BLEDevice::getScan();
+    if (!pBLEScan->isScanning()) {
+        deviceInRange = false; 
+        // Setting the second parameter to 'false' for non-blocking
+        pBLEScan->start(scanTime, scanCompleteCB, false); 
+    }
 
     if (deviceInRange && !wasDeviceInRange) {
-      Serial.println("MATCH_FOUND");
-      operateServo(true);
-      wasDeviceInRange = true;
+        Serial.println("MATCH_FOUND");
+        operateServo(true);
+        wasDeviceInRange = true;
+    } else if (!deviceInRange && wasDeviceInRange) {
+        Serial.println("TARGET_LOST");
+        operateServo(false);
+        wasDeviceInRange = false;
     }
-    else if (!deviceInRange && wasDeviceInRange) {
-      Serial.println("TARGET_LOST");
-      operateServo(false);
-      wasDeviceInRange = false;
-    }
+  }
 
     BLEDevice::getScan()->clearResults();
-  }
 
   delay(100);
 }
