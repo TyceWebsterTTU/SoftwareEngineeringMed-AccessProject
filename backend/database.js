@@ -25,6 +25,7 @@ const pool = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  timezone: 'local',
   port: 3306,
   waitForConnections: true,
   connectionLimit: 10,
@@ -82,13 +83,14 @@ app.post('/login', async (req, res) => {
                 "INSERT INTO tblLogins (UserID, LastLoginTime, LastLogoutTime) VALUES (?, NOW(), NULL)", 
                 [user.UserID]
             );
+            console.log(loginResult);
             
             if (loginResult && loginResult.insertId) {
                 sessionID = loginResult.insertId;
                 console.log(`[Database] Session Created: ${sessionID}`);
             }    
         } catch (logErr) {
-            console.error("[Logging Error]:", logErr.message);
+            console.error("[Logging Error]:", logErr.sqlMessage || logErr.message);
         }
 
         // --- 4. PREPARE & SEND RESPONSE ---
@@ -171,8 +173,9 @@ app.post('/user', async (req, res) => {
 // Get login/logout information
 app.get('/loginData', async (req, res) => {
     try {
-        const [results] = await pool.query("SELECT UserID, LastLoginTime, LastLogoutTime FROM tblLogins")
-        res.json(results)
+        const strQuery = `SELECT Username, DATE_FORMAT(LastLoginTime, '%b %d, %Y - %h:%i %p') AS LastLoginTime, COALESCE(DATE_FORMAT(LastLogoutTime, '%b %d, %Y - %h:%i %p'), 'Active Session') AS LastLogoutTime FROM tblLogins LEFT JOIN tblUsers ON tblLogins.UserID = tblUsers.UserID`
+        const [results] = await pool.query(strQuery);
+        res.json(results);
     } catch(err) {
          return res.status(500).json({Error: err.message})
     }

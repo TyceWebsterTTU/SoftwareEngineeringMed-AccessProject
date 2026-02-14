@@ -50,15 +50,18 @@ async function updateLogout() {
 
 async function LoadLoginData() {
     try {
-        console.log("Calling LoadLoginData")
-        // CHANGED: Use relative path
         const fetchRes = await fetch("/loginData", {
             method: "GET",
             headers: { "Content-Type": "application/json" }
         });
-        console.log(fetchRes)
-        const results = await fetchRes.json();
-        console.log(results)
+
+        const data = await fetchRes.json();
+
+        // Check if the response is actually an error object
+        if (!fetchRes.ok || data.Error) {
+            console.error("Server Error:", data.Error);
+            return;
+        }
 
         // Get the DataTable instance
         if (!loginTable) {
@@ -73,19 +76,16 @@ async function LoadLoginData() {
         // Clears old data
         loginTable.clear();
 
-        if (results.length === 0) {
-            loginTable.draw();
-            return;
-        }
-
-        // 3. Add rows using the API
-        results.forEach(row => {
+        // Add rows using the API
+        data.forEach(row => {
             loginTable.row.add([
-                row.UserID,
+                row.Username,
                 row.LastLoginTime,
                 row.LastLogoutTime
-            ]).draw(false); // 'false' keeps the current pagination page
+            ]); // 'false' keeps the current pagination page
         });
+
+        loginTable.draw();
     } catch (err) {
         console.error("Error loading data:", err);
     }
