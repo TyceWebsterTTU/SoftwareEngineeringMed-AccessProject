@@ -46,6 +46,7 @@ async function login() {
         if (data.success) {
             // Store common user data
             localStorage.setItem('UserID', data.user.UserID);
+            localStorage.setItem('Username', data.user.Username)
             localStorage.setItem('UnitID', data.user.UnitID);
             localStorage.setItem('sessionID', data.sessionID);
             localStorage.setItem('Role', data.user.Role);

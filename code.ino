@@ -14,6 +14,8 @@ Servo myServo;
 bool deviceInRange = false;
 bool wasDeviceInRange = false; 
 bool armed = false;
+bool overrideOccurred = false;
+bool logDelivered = true;
 
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
     void onResult(BLEAdvertisedDevice advertisedDevice) {
@@ -35,6 +37,8 @@ void setup() {
   Serial.begin(115200);
   ESP32PWM::allocateTimer(0);
   delay(1000); 
+  pinMode(OVERRIDE_PIN, INPUT_PULLUP);
+  attachInterrupt(OVERRIDE_PIN, handleOverride, FALLING)
   
   preferences.begin("dispatch", false);
   // Load saved UUID or use a dummy that won't match anything accidentally
@@ -111,6 +115,21 @@ void loop() {
     BLEDevice::getScan()->clearResults();
 
   delay(100);
+
+  if (!logDelivered) {
+    Serial.println("LOG:OVERRIDE_PRESSED");
+    // We don't set logDelivered = true yet! 
+    // We wait for the browser to tell us it heard it.
+  }
+ 
+  if (Serial.available() > 0) {
+    String response = Serial.readStringUntil('\n');
+    if (response == "LOG_ACK") {
+      logDelivered = true;
+      overrideOccurred = false;
+      Serial.println("STATUS:LOG_CLEARED");
+    }
+  }
 }
 
 
@@ -121,4 +140,9 @@ void operateServo(bool open) {
     myServo.write(95);
     delay(200);
     myServo.detach();
+}
+
+void IRAM_ATTR handleOverride() {
+  overrideOccurred = true;
+  logDelivered = false; 
 }

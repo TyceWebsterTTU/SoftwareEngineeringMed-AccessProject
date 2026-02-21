@@ -1,6 +1,17 @@
 let usersTable = null;
 let ambulanceTable = null;
 
+function displayCurrentUserInfo() {
+    const username = localStorage.getItem('Username');
+    const displayElement = document.getElementById('displayUsername');
+
+    if (username && displayElement) {
+        displayElement.textContent = " " + username; // Adds the name next to the icon
+    }
+}
+
+document.addEventListener('DOMContentLoaded', displayCurrentUserInfo);
+
 async function logout() {
     // Update logout timestamp
     await updateLogout();

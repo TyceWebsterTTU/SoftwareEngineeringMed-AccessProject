@@ -43,7 +43,7 @@ CREATE TABLE `tblCases` (
 
 CREATE TABLE `tblLogins` (
   `SessionID` INT AUTO_INCREMENT,
-  `UserID` INT,
+  `UserID` VARCHAR(36),
   `LastLoginTime` DATETIME,
   `LastLogoutTime` DATETIME,
   PRIMARY KEY (`SessionID`)
@@ -57,3 +57,9 @@ CREATE TABLE `tblRoles` (
   PRIMARY KEY (`RoleID`)
 );
 
+CREATE TABLE `tblOverrideLogs` (
+  `LogID` INT AUTO_INCREMENT,
+  `UnitID` INT,
+  `OverrideTime` DATETIME,
+  PRIMARY KEY (`LogID`)
+);

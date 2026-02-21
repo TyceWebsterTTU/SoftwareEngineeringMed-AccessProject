@@ -8,6 +8,17 @@ let ambulanceTable = null;
 
 LoadLoginData();
 
+function displayCurrentUserInfo() {
+    const username = localStorage.getItem('Username');
+    const displayElement = document.getElementById('displayUsername');
+
+    if (username && displayElement) {
+        displayElement.textContent = " " + username; // Adds the name next to the icon
+    }
+}
+
+document.addEventListener('DOMContentLoaded', displayCurrentUserInfo);
+
 async function logout() {
     // Update logout timestamp
     await updateLogout()
@@ -212,6 +223,9 @@ async function LoadAmbulanceData() {
 
         // 3. Add rows using the API
         results.forEach(row => {
+            const securityDisplay = row.OverrideActive == 1
+                ? `<button class="btn btn-warning btn-sm" onclick="overrideReset('${row.UnitID}')">RESET OVERRIDE</button>`
+                : `<span class="badge bg-success">SECURE</span>`;
             ambulanceTable.row.add([
                 row.UnitID,
                 row.ShiftStatus,
@@ -221,7 +235,8 @@ async function LoadAmbulanceData() {
                 `<div class="d-flex justify-content-center gap-2">
                     <button class="btn btn-danger btn-sm" onclick="removeUnit('${row.UnitID}')">Delete</button>
                     <button class="btn btn-success btn-sm" onclick="editUnits('${row.UnitID}')">Edit</button>
-                </div>`
+                </div>`,
+                securityDisplay
             ]).draw(false); // 'false' keeps the current pagination page
         });
     } catch (err) {
@@ -357,6 +372,23 @@ async function loadAvailableUnits() {
     }
 }
 
+async function overrideReset(UnitID) {
+    if (!confirm("Remote reset Unit #" + UnitID + "?")) return;
+    try {
+        const fetchRes = await fetch("/api/resetOverride", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ UnitID: UnitID })
+        })
+        if (await fetchRes.json()) {
+            alert("Reset signal sent. Hardware will relock shortly.");
+            LoadAmbulanceData();
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
 async function addUsers() {
     // These names match the backend req.body variables exactly
     const user = {
@@ -364,7 +396,7 @@ async function addUsers() {
         username: document.getElementById("newUsername").value,
         password: document.getElementById("newPassword")?.value, // Added hashed Password
         role: document.getElementById("newRole")?.value, // Added Role
-        AssignedAmbulance: document.getElementById("newAmbulance")?.value // Added Ambulance
+        AssignedAmbulance: document.getElementById("newAmbulance").value || 0 // Added Ambulance
     };
 
     const fetchRes = await fetch("/user", {
@@ -380,7 +412,10 @@ async function addUsers() {
         // --- CLEAR FIELDS HERE ---
         document.getElementById('newUsername').value = '';
         document.getElementById('newPassword').value = '';
-        document.getElementById('assignedAmbulance').value = '';
+
+        const ambulanceField = document.getElementById('newAmbulance'); 
+        if (ambulanceField) ambulanceField.value = '';
+
         LoadUserData();
     }
 }

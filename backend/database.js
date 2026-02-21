@@ -32,22 +32,6 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-
-
-// Test Route
-//app.get('/test', async (req, res) => {
-//    try {
-//        // No .connect() needed! Pool handles it automatically.
-//        const [results] = await pool.query("SELECT * FROM test");
-//        console.log("Query Success:", results);
-//        res.status(200).json({ results: results });
-//    } catch (err) {
-//        console.error("Database Error:", err);
-//        res.status(500).json({ error: err.message });
-//    }
-//});
-
-
 // Login connection
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
@@ -152,6 +136,25 @@ app.get('/user', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+
+//get one user
+app.get('/user/info', async (req, res) => {
+    const { userID } = req.body;
+    
+    if (!userID) {
+        return res.status(400).json({ success: false, message: "userID is required" });
+    }
+
+    try {
+        const [results] = await pool.query("SELECT UserID, Username, Role, AssignedAmbulance FROM tblUsers WHERE UserID = ?", [userID]);
+        res.json(results);
+    } catch (err) {
+        console.error("Fetch Users Error:", err);
+        res.status(500).json({ error: err.message }); 
+    }
+});
+
 
 // Create User Route
 app.post('/user', async (req, res) => {
@@ -309,22 +312,34 @@ app.get('/unitsAvailable', async (req, res) => {
     }
 })
 
-
 // POST route to save hardware events
-app.post('/api/logs', async (req, res) => {
-    const { data, UserID } = req.body; 
+app.post('/api/overrideLogs', async (req, res) => {
+    const { data, UnitID } = req.body; 
     try {
-        // Ensure your tblLogs has these columns (LogID is usually AUTO_INCREMENT)
-        const strQuery = "INSERT INTO tblLogs (UserID, RawData) VALUES (?, ?)";
-        await pool.query(strQuery, [UserID, data]);
+        const strQuery = "INSERT INTO tblOverrideLogs (UnitID, RawData) VALUES (?, ?)";
+        await pool.query(strQuery, [UnitID, data]);
         
-        console.log(`Log Saved: User ${UserID} - ${data}`);
+        if(data.includes("HARDWARE_OVERRIDE_TRIGGERED")) {
+            const strUpdateQuery = `UPDATE tblAmbulance LEFT JOIN tblCases ON tblAmbulance.CaseID = tblCases.CaseID SET Needed = 1, OverrideActive = 1 WHERE UnitID = ?`;
+            await pool.query(strUpdateQuery, [UnitID]);
+        }
         res.status(200).json({ status: "Success" });
     } catch (err) {
         console.error("Database Error (Logging):", err);
         res.status(500).json({ error: "Failed to save log" });
     }
 });
+
+app.put('/api/resetOverride', async (req, res) => {
+    const { UnitID } = req.body;
+    try {
+        strQuery = `UPDATE tblAmbulance LEFT JOIN tblCases ON tblAmbulance.CaseID = tblCases.CaseID SET Needed = 0, OverrideActive = 0 WHERE UnitID = ?`;
+        await pool.query(strQuery, [UnitID]);
+        res.status(200).json({ status: "Success" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+})
 
 // GET route to check for active calls and get the target UUID
 app.get('/api/dispatch/status/:UnitID', async (req, res) => {
@@ -421,6 +436,43 @@ app.get('/ambulance', async (req, res) => {
     }
 })
 
+//complete a call
+app.put('/api/dispatch/complete', async (req, res) => {
+    const { unitID, caseID } = req.body;
+
+    if (!unitID || !caseID) {
+        return res.status(400).json({ success: false, message: "UnitID and CaseID are required." });
+    }
+
+    try {
+        const strQuery = `
+            UPDATE tblAmbulance 
+            INNER JOIN tblCases ON tblAmbulance.CaseID = tblCases.CaseID
+            SET 
+                tblAmbulance.ActiveCall = 0,
+                tblCases.Needed = 0
+            WHERE 
+                tblAmbulance.UnitID = ? 
+                AND tblCases.CaseID = ?`;
+
+        const [result] = await pool.query(strQuery, [unitID, caseID]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: "Update failed. Verify UnitID and CaseID match." 
+            });
+        }
+
+        console.log(`[Dispatch] Completed: Unit ${unitID} available, Case ${caseID} disarmed.`);
+        res.json({ success: true, affectedRows: result.affectedRows });
+
+    } catch (err) {
+        console.error("Database Error (Complete Call):", err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // Audit box / changes "Needed" in tblCases
 app.put('/case', async (req, res) => {
     const { caseID } = req.body.caseID
@@ -445,6 +497,18 @@ app.put('/case', async (req, res) => {
 
     } catch(err) {
         res.status(500).json({ error: err.message });
+    }
+})
+
+app.post('/api/overrideLogs', async (req, res) => {
+    const { unitID } = req.body.UnitID
+
+    try {
+        let strQuery = "INSERT UnitID, OverrideTime INTO tblOverrideLogs VALUES (?, NOW())"
+        const [results] = await pool.query(strQuery, [unitID])
+    } catch (err) {
+        console.error("Update Error:", err);
+        res.status(500).json({ success: false, error: err.message });
     }
 })
 

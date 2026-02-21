@@ -10,7 +10,16 @@ let usersTable = null;
 let boxesTable = null;
 let ambulanceTable = null;
 
+function displayCurrentUserInfo() {
+    const username = localStorage.getItem('Username');
+    const displayElement = document.getElementById('displayUsername');
 
+    if (username && displayElement) {
+        displayElement.textContent = " " + username; // Adds the name next to the icon
+    }
+}
+
+document.addEventListener('DOMContentLoaded', displayCurrentUserInfo);
 
 class LineBreakTransformer {
     constructor() { this.container = ''; }
@@ -179,6 +188,20 @@ async function listenToESP32() {
 
                     sendDataToServer("Access Event: Box opened by authorized phone.");
                 }
+
+                // Inside your listenToESP32 while loop
+                if (value.includes("LOG:OVERRIDE_PRESSED")) {
+                    // 1. Send to your MySQL database immediately
+                    await sendDataToServer("HARDWARE_OVERRIDE_TRIGGERED");
+                    
+                    // 2. Send the "Receipt" back to the ESP32
+                    const writer = port.writable.getWriter();
+                    const encoder = new TextEncoder();
+                    await writer.write(encoder.encode("LOG_ACK\n"));
+                    writer.releaseLock();
+                    
+                    terminal.innerHTML += `<div class="text-danger fw-bold">!! MANUAL OVERRIDE LOGGED !!</div>`;
+                }
             }
         }
     } catch (err) {
@@ -252,17 +275,19 @@ async function disarmNarcoticsBox() {
  * LOG DATA TO MYSQL
  * Forwards hardware events to your Proxmox backend.
  */
+
+// this command may be able to be removed if you do the logging in the specific routes instead.
 async function sendDataToServer(dataString) {
     try {
-        // Grab current UserID from session (ensure you set this during login!)
-        const UserID = localStorage.getItem('UserID') || 0;
+        // Grab current UnitID from session
+        const UnitID = localStorage.getItem('UnitID') || 0;
 
-        await fetch('/api/logs', {
+        await fetch('/api/overrideLogs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 data: dataString,
-                UserID: UserID
+                UnitID: UnitID
             })
         });
     } catch (err) {
@@ -272,6 +297,9 @@ async function sendDataToServer(dataString) {
 
 
 function startDispatchPolling() {
+    let previousOverrideState = 0; 
+    console.log(`Polling started for Unit ${UnitID}. Initial State: Secure`);
+
     setInterval(async () => {
         const UnitID = localStorage.getItem('UnitID');
         if (!UnitID) return;
@@ -281,6 +309,15 @@ function startDispatchPolling() {
             if (!response.ok) return;
 
             const status = await response.json();
+
+            // NEW: If DB says it's reset (0) but hardware is open, send reset command
+            if (previousOverrideState === 1 && status.OverrideActive === 0) {
+                console.log("ALARM CLEARED: Sending relock command to hardware.");
+                await sendResetToHardware();
+            }
+
+            // Update the tracker so the next loop knows what the 'old' state was
+            previousOverrideState = status.OverrideActive;
             
             // Logic: Call is active AND database says narcotics are 'Needed'
             if (status.ActiveCall > 0 && status.Needed === 1 && !hasSentArmCommand) {
@@ -305,4 +342,57 @@ function startDispatchPolling() {
             console.error("Polling error:", err);
         }
     }, 5000); 
+}
+
+// Placeholder for right now. Can be changed as needed.
+async function sendResetToHardware() {
+    if (!port || !port.writable) return;
+    const writer = port.writable.getWriter();
+    const encoder = new TextEncoder();
+    try {
+        await writer.write(encoder.encode("ADMIN_RESET_CMD\n"));
+    } finally {
+        writer.releaseLock();
+    }
+}
+
+async function sendCallStatusToDispatch() {
+    
+    const unitID = parseInt(document.querySelector('#txtUnitID').value)
+    const caseID = parseInt(document.querySelector('#txtCaseID').value)
+
+    try {
+        const response = await fetch('/api/dispatch/complete', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                unitID: unitID,
+                caseID: caseID
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            console.log('Call successfully completed:', data);
+            alert(`Unit ${unitID} is now clear and Case ${caseID} is disarmed.`);
+        } else {
+            console.error('Failed to complete call:', data.message);
+        }
+    } catch (error) {
+        console.error('Network or Server Error:', error);
+    }
+}
+
+async function showLoggedInUser(){
+    const info = await fetch('/user/info', {
+        method: 'GET',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            userID: localStorage.getItem()
+
+        })
+
+    })
+
 }
