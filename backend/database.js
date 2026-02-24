@@ -316,10 +316,10 @@ app.get('/unitsAvailable', async (req, res) => {
 app.post('/api/overrideLogs', async (req, res) => {
     const { data, UnitID } = req.body; 
     try {
-        const strQuery = "INSERT INTO tblOverrideLogs (UnitID, RawData) VALUES (?, ?)";
-        await pool.query(strQuery, [UnitID, data]);
+        const strQuery = "INSERT INTO tblOverrideLogs (UnitID, OverrideTime) VALUES (?, NOW())";
+        await pool.query(strQuery, [UnitID]);
         
-        if(data.includes("HARDWARE_OVERRIDE_TRIGGERED")) {
+        if(data && data.includes("HARDWARE_OVERRIDE_TRIGGERED")) {
             const strUpdateQuery = `UPDATE tblAmbulance LEFT JOIN tblCases ON tblAmbulance.CaseID = tblCases.CaseID SET Needed = 1, OverrideActive = 1 WHERE UnitID = ?`;
             await pool.query(strUpdateQuery, [UnitID]);
         }
@@ -500,6 +500,7 @@ app.put('/case', async (req, res) => {
     }
 })
 
+// Create a log when override occurs
 app.post('/api/overrideLogs', async (req, res) => {
     const { unitID } = req.body.UnitID
 
@@ -509,6 +510,64 @@ app.post('/api/overrideLogs', async (req, res) => {
     } catch (err) {
         console.error("Update Error:", err);
         res.status(500).json({ success: false, error: err.message });
+    }
+})
+
+// Get override logs
+app.get('/api/showOverrideLogs', async (req, res) => {
+    try {
+        strQuery = "SELECT * FROM tblOverrideLogs"
+        const [results] = await pool.query(strQuery)
+        res.json(results)
+    } catch (err) {
+        console.error("Fetch error:", err)
+        res.status(500).json({error: err.message})
+    }
+})
+
+// Gets count of all active units
+app.get('/api/activeUnits/count', async (req, res) => {
+    try {
+        strQuery = "SELECT COUNT(*) FROM tblAmbulance WHERE ShiftStatus = 1"
+        const [results] = await pool.query(strQuery)
+        res.json(results)
+    } catch (err) {
+        console.error("Fetch error:", err)
+        res.status(500).json({error: err.message})
+    }
+})
+
+// Gets all active units
+app.get('/api/activeUnits', async (req, res) => {
+    try {
+        strQuery = "SELECT * FROM tblAmbulance WHERE ShiftStatus = 1"
+        const [results] = await pool.query(strQuery)
+        res.json(results)
+    } catch (err) {
+        console.error("Fetch error:", err)
+        res.status(500).json({error: err.message})
+    }
+})
+
+// Gets count of all inactive units
+app.get('/api/inactiveUnits/count', async (req, res) => {
+    try {
+        strQuery = "SELECT COUNT(*) FROM tblAmbulance WHERE ShiftStatus = 0"
+        const [results] = await pool.query(strQuery)
+    } catch (err) {
+        console.error("Fetch error:", err)
+        res.status(500).json({error: err.message})
+    }
+})
+
+// Gets all inactive units
+app.get('/api/inactiveUnits', async (req, res) => {
+    try {
+        strQuery = "SELECT * FROM tblAmbulance WHERE ShiftStatus = 0"
+        const [results] = await pool.query(strQuery)
+    } catch (err) {
+        console.error("Fetch error:", err)
+        res.status(500).json({error: err.message})
     }
 })
 

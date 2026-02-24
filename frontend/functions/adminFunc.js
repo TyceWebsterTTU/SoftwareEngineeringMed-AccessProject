@@ -5,15 +5,85 @@ let loginTable = null;
 let usersTable = null;
 let boxesTable = null;
 let ambulanceTable = null;
+let overrideLogsTable = null;
 
 LoadLoginData();
 
+const ctx = document.getElementById('canGraph').getContext('2d');
+new Chart(ctx, {
+    type: 'line', // or 'bar'
+    data: { /* your data */ },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false, // Important: Allows graph to follow the 300px height
+        plugins: {
+            legend: { display: false }
+        }
+    }
+});
+
 function displayCurrentUserInfo() {
     const username = localStorage.getItem('Username');
-    const displayElement = document.getElementById('displayUsername');
+    const displayUserName = document.getElementById('displayUsername');
+    const role = localStorage.getItem('Role')
+    const displayRole = document.getElementById('displayRole')
 
-    if (username && displayElement) {
-        displayElement.textContent = " " + username; // Adds the name next to the icon
+    const ambulance = localStorage.getItem('UnitID')
+    const displayAmbulance = document.getElementById('displayAmbulance')
+
+    if (username && displayUserName) {
+        displayUserName.textContent = " " + username; // Adds the name next to the icon
+    }
+
+    if(role && displayRole){
+        displayRole.textContent = displayRole.textContent + role;
+    }
+
+    if(ambulance && displayAmbulance){
+        displayAmbulance.textContent = displayAmbulance.textContent + ambulance;
+    }
+}
+
+async function showRecentOverrideLogs() {
+    try {
+        const fetchRes = await fetch('/api/showOverrideLogs', {
+            method: "GET",
+            headers: { "Content-Type": "application/json" }
+        });
+
+        const data = await fetchRes.json();
+
+        // Check if the response is actually an error object
+        if (!fetchRes.ok || data.Error) {
+            console.error("Server Error:", data.Error);
+            return;
+        }
+        // Get the DataTable instance
+        if (!overrideLogsTable) {
+            overrideLogsTable = new DataTable('#tblOverrideLogs', {
+                columnDefs: [
+                    { targets: 0, width: "60px", className: "text-center" },
+                    { targets: 1, width: "60px", className: "text-center" }
+                ]
+            });
+        }
+        // Clears old data
+        overrideLogsTable.clear();
+
+        // Add rows using the API
+        data.forEach(row => {
+            overrideLogsTable.row.add([
+                row.UnitID,
+                row.OverrideTime,
+            ]); // 'false' keeps the current pagination page
+        });
+
+        overrideLogsTable.draw();
+
+        const myModal = new bootstrap.Modal(document.getElementById('overrideLogsModal'))
+        myModal.show()
+    } catch (err) {
+        console.error("Error loading data:", err);
     }
 }
 
