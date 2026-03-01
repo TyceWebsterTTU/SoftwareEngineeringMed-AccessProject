@@ -460,9 +460,8 @@ async function LoadUserData() {
         if (!usersTable) {
             usersTable = new DataTable('#tblUsers', {
                 columnDefs: [
-                    { targets: 0, width: "60px", className: "text-center" },  // ID
-                    { targets: 3, width: "100px", className: "text-center" }, // Ambulance
-                    { targets: 4, width: "160px", className: "text-center" }  // Actions
+                    { targets: [1, 2], className: "text-center" },
+                    { targets: 3, orderable: false, className: "text-center" }  // Actions
                 ]
             });
         }
@@ -477,7 +476,6 @@ async function LoadUserData() {
         // 3. Add rows using the API
         results.forEach(row => {
             usersTable.row.add([
-                row.UserID,
                 row.Username,
                 row.Role,
                 row.AssignedAmbulance || 0,
@@ -554,6 +552,17 @@ async function LoadAmbulanceData() {
         if (!ambulanceTable) {
             ambulanceTable = new DataTable('#tblAmbulance', {
                 columnDefs: [
+                    {
+                        targets: [1, 2],
+                        className: "text-center",
+                        render: function (data, type, row) {
+                            if (data == 1) {
+                                return `<button class="btn btn-sm btn-success w-75 shadow-sm" style="pointer-events: none;">Yes</button>`
+                            } else {
+                                return `<button class="btn btn-sm btn-secondary w-75 shadow-sm" style="pointer-events: none;">No</button>`
+                            }
+                        }
+                    },
                     { targets: "_all", className: "text-center" }
                 ]
             });
@@ -634,11 +643,14 @@ function editUnits(UnitID) {
         //Find the row in the table that has this ID
         const row = document.querySelector(`button[onclick="editUnits('${UnitID}')"]`).closest("tr").children;
 
+        const onShiftText = row[1].textContent.trim()
+        const activeCallText = row[2].textContent.trim()
+
         document.getElementById("editUnitID").value = UnitID
         
         //Populate your HTML modal fields
-        document.getElementById("editShiftStatus").value = row[1].textContent;
-        document.getElementById('editActiveCall').value = row[2].textContent;
+        document.getElementById("editShiftStatus").value = (onShiftText == "Yes") ? "1" : "0"
+        document.getElementById('editActiveCall').value = (activeCallText == "Yes") ? "1" : "0"
         document.getElementById("editCaseID").value = row[3].textContent;
         document.getElementById("editConnectedESP").value = row[4].textContent;
 

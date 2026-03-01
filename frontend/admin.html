@@ -35,9 +35,9 @@
                 </ul>
 
                 <div class="navbar-nav">
-                    <div class="nav-item dropdown">
+                    <div class="nav-item dropdown w-100">
                     <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false"><i class="bi bi-person-circle"></i><span id="displayUsername"></span></a>
-                    <div class="dropdown-menu dropdown-menu-end">
+                    <div class="dropdown-menu dropdown-menu-end bg-secondary border-white mt-1 p-3">
                         <h6 id="displayRole">Role: </h6>
                         <h6 id="displayAmbulance">Ambulance: </h6>
                         <div class="dropdown-divider"></div>
@@ -370,10 +370,16 @@
 
                 <div class="mb-2 text-dark">
                     <label for="editShiftStatus">On Shift</label>
-                    <input type="text" id="editShiftStatus" class="form-control">
+                    <select class="form-select" id="editShiftStatus">
+                        <option value="1">Yes</option>
+                        <option value="0">No</option>
+                    </select>
 
                     <label for="editActiveCall">Actively On Call</label>
-                    <input type="text" id="editActiveCall" class="form-control">
+                    <select class="form-select" id="editActiveCall">
+                        <option value="1">Yes</option>
+                        <option value="0">No</option>
+                    </select>
 
                     <label for="editCaseID">Case Number</label>
                     <input type="text" id="editCaseID" class="form-control">
@@ -391,8 +397,8 @@
     </div>
     </div>
 
-    <div id="section-users" class="container-fluid py-4" style="display:none;">
-        <h3>User Management</h3>
+    <div id="section-users" class="container-fluid px-4 well" style="display:none;">
+        <h3 class="mt-4">User Management</h3>
         
         <div class="card mb-4">
             <div class="card-header bg-light">Add New User</div>
@@ -425,11 +431,10 @@
         <div class="mb-4">
             <div class="card-body">
                 <div class="row g-3 align-items-end">
-                    <div class="table-responsive shadow rounded-3 overflow-hidden border bg-white text-dark">
-                        <table class="table table-hover table-bordered align-middle text-center mb-0 bg-white table-striped" id="tblUsers">
+                    <div class="table-responsive rounded-3 overflow-hidden border bg-white text-dark">
+                        <table class="table table-hover table-bordered align-middle text-center mb-0 bg-white table-striped w-100" id="tblUsers">
                             <thead id="tableHead" class="text-center">
                                 <tr>
-                                    <th class="text-center">User ID</th>
                                     <th class="text-center">Username</th>
                                     <th class="text-center">Role</th>
                                     <th class="text-center">Ambulance</th>

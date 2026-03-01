@@ -147,7 +147,7 @@ app.get('/user/info', async (req, res) => {
     }
 
     try {
-        const [results] = await pool.query("SELECT UserID, Username, Role, AssignedAmbulance FROM tblUsers WHERE UserID = ?", [userID]);
+        const [results] = await pool.query("SELECT Username, Role, AssignedAmbulance FROM tblUsers WHERE UserID = ?", [userID]);
         res.json(results);
     } catch (err) {
         console.error("Fetch Users Error:", err);
