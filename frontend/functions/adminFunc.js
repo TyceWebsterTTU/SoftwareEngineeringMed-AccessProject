@@ -5,22 +5,62 @@ let loginTable = null;
 let usersTable = null;
 let boxesTable = null;
 let ambulanceTable = null;
+let failedLoginsTable = null;
+let totalOnlineUnitsTable = null;
+let totalOfflineUnitsTable = null;
 let overrideLogsTable = null;
 
-LoadLoginData();
+//LoadLoginData();
 
-const ctx = document.getElementById('canGraph').getContext('2d');
-new Chart(ctx, {
-    type: 'line', // or 'bar'
-    data: { /* your data */ },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false, // Important: Allows graph to follow the 300px height
-        plugins: {
-            legend: { display: false }
-        }
+async function initCallsGraph() {
+    try {
+        const fetchRes = await fetch('/api/callsPerWeek')
+        const data = await fetchRes.json()
+
+        const labels = data.map(row => row.WeekStart)
+        const counts = data.map(row => row.CallCount)
+
+        const ctx = document.getElementById('canGraph').getContext('2d');
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Calls Completed',
+                    data: counts,
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#0d6efd'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false, // Important: Allows graph to follow the 300px height
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { display: true, color: '#f0f0f0' },
+                        ticks: { stepSize: 1 }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    } catch (err) {
+        console.error("Failed to load graph:", err);
     }
-});
+}
 
 function displayCurrentUserInfo() {
     const username = localStorage.getItem('Username');
@@ -41,6 +81,230 @@ function displayCurrentUserInfo() {
 
     if(ambulance && displayAmbulance){
         displayAmbulance.textContent = displayAmbulance.textContent + ambulance;
+    }
+}
+
+async function showFailedLogins() {
+    try {
+        const fetchRes = await fetch('/api/failedLogins', {
+            method: "GET",
+            headers: { "Content-Type": "application/json" }
+        });
+
+        const data = await fetchRes.json();
+
+        // Check if the response is actually an error object
+        if (!fetchRes.ok || data.Error) {
+            console.error("Server Error:", data.Error);
+            return;
+        }
+
+        // Get the DataTable instance
+        if (!failedLoginsTable) {
+            failedLoginsTable = new DataTable('#tblFailedLogins', {
+                columnDefs: [
+                    { targets: 0, width: "60px", className: "text-center" },
+                    { targets: 1, width: "60px", className: "text-center" }
+                ]
+            });
+        }
+        // Clears old data
+        failedLoginsTable.clear();
+
+        // Add rows using the API
+        data.forEach(row => {
+            failedLoginsTable.row.add([
+                row.Username,
+                row.TimeStamp
+            ]); // 'false' keeps the current pagination page
+        });
+
+        failedLoginsTable.draw();
+
+        const myModal = new bootstrap.Modal(document.getElementById('failedLoginsModal'))
+        myModal.show()
+    } catch (err) {
+        console.error("Error loading data:", err);
+    }
+}
+
+async function totalFailedLogins() {
+    try {
+        const fetchRes = await fetch('/api/failedLogins/count', {
+            method: "GET",
+            headers: { "Content-Type": "application/json" }
+        });
+
+        const data = await fetchRes.json();
+
+        // Check if the response is actually an error object
+        if (!fetchRes.ok || data.Error) {
+            console.error("Server Error:", data.Error);
+            return;
+        }
+
+        const displayElement = document.getElementById('failedLoginCount')
+        if(displayElement) {
+            // If it's an array, grab the first item. If not, use 'data'
+            const result = Array.isArray(data) ? data[0] : data;
+            
+            // Extract the number (checking common SQL keys like 'total', 'count', or 'count(*)')
+            const finalCount = result.total ?? result.count ?? Object.values(result)[0] ?? 0;
+            
+            displayElement.innerText = finalCount;
+        }
+    } catch (err) {
+        console.error("Error loading data:", err);
+    }
+}
+
+async function showTotalActiveUnits() {
+    try {
+        const fetchRes = await fetch('/api/activeUnits', {
+            method: "GET",
+            headers: { "Content-Type": "application/json" }
+        });
+
+        const data = await fetchRes.json();
+
+        // Check if the response is actually an error object
+        if (!fetchRes.ok || data.Error) {
+            console.error("Server Error:", data.Error);
+            return;
+        }
+        // Get the DataTable instance
+        if (!totalOnlineUnitsTable) {
+            totalOnlineUnitsTable = new DataTable('#tblOnlineUnits', {
+                columnDefs: [
+                    { targets: 0, width: "60px", className: "text-center" },
+                    { targets: 1, width: "60px", className: "text-center" },
+                    { targets: 2, width: "60px", className: "text-center" }
+                ]
+            });
+        }
+        // Clears old data
+        totalOnlineUnitsTable.clear();
+
+        // Add rows using the API
+        data.forEach(row => {
+            totalOnlineUnitsTable.row.add([
+                row.UnitID,
+                row.CaseID,
+                row.ConnectedESP
+            ]); // 'false' keeps the current pagination page
+        });
+
+        totalOnlineUnitsTable.draw();
+
+        const myModal = new bootstrap.Modal(document.getElementById('onlineUnitsModal'))
+        myModal.show()
+    } catch (err) {
+        console.error("Error loading data:", err);
+    }
+}
+
+async function totalActiveUnits() {
+    try {
+        const fetchRes = await fetch('/api/activeUnits/count', {
+            method: "GET",
+            headers: { "Content-Type": "application/json" }
+        });
+
+        const data = await fetchRes.json();
+
+        // Check if the response is actually an error object
+        if (!fetchRes.ok || data.Error) {
+            console.error("Server Error:", data.Error);
+            return;
+        }
+
+        const displayElement = document.getElementById('totalActiveUnits')
+        if(displayElement) {
+            // If it's an array, grab the first item. If not, use 'data'
+            const result = Array.isArray(data) ? data[0] : data;
+            
+            // Extract the number (checking common SQL keys like 'total', 'count', or 'count(*)')
+            const finalCount = result.total ?? result.count ?? Object.values(result)[0] ?? 0;
+            
+            displayElement.innerText = finalCount;
+        }
+    } catch (err) {
+        console.error("Error loading data:", err);
+    }
+}
+
+async function totalOffilineUnits() {
+    try {
+        const fetchRes = await fetch('/api/inactiveUnits/count', {
+            method: "GET",
+            headers: { "Content-Type": "application/json" }
+        });
+
+        const data = await fetchRes.json();
+
+        // Check if the response is actually an error object
+        if (!fetchRes.ok || data.Error) {
+            console.error("Server Error:", data.Error);
+            return;
+        }
+
+        const displayElement = document.getElementById('totalOfflineUnits')
+        if(displayElement) {
+            // If it's an array, grab the first item. If not, use 'data'
+            const result = Array.isArray(data) ? data[0] : data;
+            
+            // Extract the number (checking common SQL keys like 'total', 'count', or 'count(*)')
+            const finalCount = result.total ?? result.count ?? Object.values(result)[0] ?? 0;
+            
+            displayElement.innerText = finalCount;
+        }
+    } catch (err) {
+        console.error("Error loading data:", err);
+    }
+}
+
+async function showTotalOfflineUnits() {
+    try {
+        const fetchRes = await fetch('/api/inactiveUnits', {
+            method: "GET",
+            headers: { "Content-Type": "application/json" }
+        });
+
+        const data = await fetchRes.json();
+
+        // Check if the response is actually an error object
+        if (!fetchRes.ok || data.Error) {
+            console.error("Server Error:", data.Error);
+            return;
+        }
+        // Get the DataTable instance
+        if (!totalOfflineUnitsTable) {
+            totalOfflineUnitsTable = new DataTable('#tblOfflineUnits', {
+                columnDefs: [
+                    { targets: 0, width: "60px", className: "text-center" },
+                    { targets: 1, width: "60px", className: "text-center" },
+                    { targets: 2, width: "60px", className: "text-center" }
+                ]
+            });
+        }
+        // Clears old data
+        totalOfflineUnitsTable.clear();
+
+        // Add rows using the API
+        data.forEach(row => {
+            totalOfflineUnitsTable.row.add([
+                row.UnitID,
+                row.CaseID,
+                row.ConnectedESP
+            ]); // 'false' keeps the current pagination page
+        });
+
+        totalOfflineUnitsTable.draw();
+
+        const myModal = new bootstrap.Modal(document.getElementById('offlineUnitsModal'))
+        myModal.show()
+    } catch (err) {
+        console.error("Error loading data:", err);
     }
 }
 
@@ -74,7 +338,7 @@ async function showRecentOverrideLogs() {
         data.forEach(row => {
             overrideLogsTable.row.add([
                 row.UnitID,
-                row.OverrideTime,
+                row.OverrideTime 
             ]); // 'false' keeps the current pagination page
         });
 
@@ -88,6 +352,17 @@ async function showRecentOverrideLogs() {
 }
 
 document.addEventListener('DOMContentLoaded', displayCurrentUserInfo);
+document.addEventListener('DOMContentLoaded', () => {
+    totalFailedLogins();
+    totalActiveUnits();
+    totalOffilineUnits();
+    initCallsGraph();
+
+    setInterval(totalFailedLogins, 30000)
+    setInterval(totalActiveUnits, 30000)
+    setInterval(totalOffilineUnits, 30000)
+    setInterval(initCallsGraph, 30000)
+});
 
 async function logout() {
     // Update logout timestamp

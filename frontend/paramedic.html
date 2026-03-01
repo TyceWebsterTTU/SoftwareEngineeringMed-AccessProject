@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Med-Access Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/2.1.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
     <link rel="shortcut icon" href="#">
 
@@ -38,8 +39,19 @@
                     </li>
                 </ul>
 
-                <button id="btnUser" class="btn btn-outline-light"><i class="bi bi-person-circle"></i><span id="displayUsername"></span></button>
-                <button id="btnLogout" class="btn btn-outline-light" type="button" onclick="logout()">Logout</button>
+
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false"><i class="bi bi-person-circle"></i><span id="displayUsername"></span></a>
+                    <div class="dropdown-menu dropdown-menu-end">
+                        <h6 id="displayRole">Role: </h6>
+                        <h6 id="displayAmbulance">Ambulance: </h6>
+                        <div class="dropdown-divider"></div>
+                            <div class="text-center">
+                                <button id="btnLogout" class="btn btn-outline-light justify-content-center" type="button" onclick="logout()">Logout</button>  
+                            </div>
+                        </div>
+                </div>
+               
             </div>
         </div>
     </nav>
@@ -66,7 +78,7 @@
                                 <input class="form-control" id="txtUnitID" type="text">
                                 <label class="form-label" for="txtCaseID">Case ID</label>
                                 <input class="form-control" id="txtCaseID" type="text">
-                                <div class="d-grid gap-2">
+                                <div class="d-grid gap-2 mt-3">
                                     <button id="cancelBtn" class="btn btn-danger fw-bold" onclick="sendCallStatusToDispatch()">Incident Responded - Alert Dispatch to Clear Call</button>
                                 </div>
                             </div>
@@ -100,15 +112,34 @@
 
         <div id="section-Parameds"class="container-fluid py-4" style="display:none;">
             <h1>All paramedics connected to esp</h1>
+            <div class="row justify-content-center mb-5">
+            <div class="col-12 col-xl-10">
+                <div class="table-responsive shadow rounded-3 overflow-hidden border bg-white text-dark">
+                    <table class="table table-hover table-bordered align-middle text-center mb-0 bg-white table-striped" id="tblParameds">
+                        <thead class="text-center">
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Role</th>
+                                <th>Ambulance</th>
+                            </tr>
+                        </thead>
+                        <tbody id="paramedsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            </div>
 
         </div>
-
     </div>
-    <script src="functions/paramedicFunc.js"></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="lib/jquery-4.0.0.min.js"></script>
+    <script src="https://cdn.datatables.net/2.3.7/js/dataTables.min.js"></script>
+    <script src="functions/paramedicFunc.js"></script>
+
     <script>
     // Start looking for calls immediately after login
-    startDispatchPolling();
     </script>
     <script>
         // Load initial data from database
@@ -128,9 +159,9 @@
 
                     // 2. Load the specific data for this section
                     // We use sectionId here to ensure it only loads once per click
-                    /*if (s === 'Parameds') {
+                    if (s === 'Parameds') {
                         LoadUserData();
-                    }*/
+                    }
                     
                 } else {
                     // 3. Hide the other sections

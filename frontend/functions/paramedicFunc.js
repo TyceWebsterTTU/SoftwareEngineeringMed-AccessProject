@@ -10,12 +10,30 @@ let usersTable = null;
 let boxesTable = null;
 let ambulanceTable = null;
 
+let previousOverrideState = 0; 
+let isHardwareResetPending = false;
+
+startDispatchPolling();
+
 function displayCurrentUserInfo() {
     const username = localStorage.getItem('Username');
-    const displayElement = document.getElementById('displayUsername');
+    const displayUserName = document.getElementById('displayUsername');
+    const role = localStorage.getItem('Role')
+    const displayRole = document.getElementById('displayRole')
 
-    if (username && displayElement) {
-        displayElement.textContent = " " + username; // Adds the name next to the icon
+    const ambulance = localStorage.getItem('UnitID')
+    const displayAmbulance = document.getElementById('displayAmbulance')
+
+    if (username && displayUserName) {
+        displayUserName.textContent = " " + username; // Adds the name next to the icon
+    }
+
+    if(role && displayRole){
+        displayRole.textContent = displayRole.textContent + role;
+    }
+
+    if(ambulance && displayAmbulance){
+        displayAmbulance.textContent = displayAmbulance.textContent + ambulance;
     }
 }
 
@@ -187,7 +205,7 @@ async function listenToESP32() {
                     // This keeps the system in an "Armed" state as long as the call is active.
 
                     sendDataToServer("Access Event: Box opened by authorized phone.");
-                }
+                }               
 
                 // Inside your listenToESP32 while loop
                 if (value.includes("LOG:OVERRIDE_PRESSED")) {
@@ -277,7 +295,7 @@ async function disarmNarcoticsBox() {
  */
 
 // this command may be able to be removed if you do the logging in the specific routes instead.
-async function sendDataToServer(dataString) {
+async function sendDataToServer(message) {
     try {
         // Grab current UnitID from session
         const UnitID = localStorage.getItem('UnitID') || 0;
@@ -286,8 +304,8 @@ async function sendDataToServer(dataString) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                data: dataString,
-                UnitID: UnitID
+                UnitID: UnitID,
+                data: message
             })
         });
     } catch (err) {
@@ -297,9 +315,6 @@ async function sendDataToServer(dataString) {
 
 
 function startDispatchPolling() {
-    let previousOverrideState = 0; 
-    console.log(`Polling started for Unit ${UnitID}. Initial State: Secure`);
-
     setInterval(async () => {
         const UnitID = localStorage.getItem('UnitID');
         if (!UnitID) return;
@@ -309,15 +324,23 @@ function startDispatchPolling() {
             if (!response.ok) return;
 
             const status = await response.json();
+            const currentDBState = status.OverrideActive // 1 for active, 0 for reset
 
-            // NEW: If DB says it's reset (0) but hardware is open, send reset command
-            if (previousOverrideState === 1 && status.OverrideActive === 0) {
+            // SMARTER RESET LOGIC:
+            // Only fire if the state actually flipped from 1 -> 0 
+            // AND we haven't already successfully sent the reset.
+            if (previousOverrideState === 1 && currentDBState === 0) {
                 console.log("ALARM CLEARED: Sending relock command to hardware.");
-                await sendResetToHardware();
+                try {
+                    await sendResetToHardware()
+                    // We successfully sent it, so we don't need to do it again next loop
+                    previousOverrideState = 0
+                } catch (error) {
+                    console.error("Hardware reset failed, will retry next poll.")
+                }
+            } else {
+                previousOverrideState = currentDBState;
             }
-
-            // Update the tracker so the next loop knows what the 'old' state was
-            previousOverrideState = status.OverrideActive;
             
             // Logic: Call is active AND database says narcotics are 'Needed'
             if (status.ActiveCall > 0 && status.Needed === 1 && !hasSentArmCommand) {
@@ -346,11 +369,19 @@ function startDispatchPolling() {
 
 // Placeholder for right now. Can be changed as needed.
 async function sendResetToHardware() {
-    if (!port || !port.writable) return;
+    if (!port || !port.writable) {
+        console.warn("Cannot resetL Port not writable")
+        return false;
+    }
     const writer = port.writable.getWriter();
     const encoder = new TextEncoder();
     try {
         await writer.write(encoder.encode("ADMIN_RESET_CMD\n"));
+        console.log("Hardware Reset Command Sent Successfully");
+        return true;
+    } catch (error) {
+        console.error("Hardware Write Error:", err);
+        return false;
     } finally {
         writer.releaseLock();
     }
@@ -396,3 +427,49 @@ async function showLoggedInUser(){
     })
 
 }
+
+async function LoadUserData() {
+    try {
+        // CHANGED: Use relative path
+        const fetchRes = await fetch("/user", {
+            method: "GET",
+            headers: { "Content-Type": "application/json" }
+        });
+        const results = await fetchRes.json();
+
+        // Get the DataTable instance
+        if (!usersTable) {
+            usersTable = new DataTable('#tblParameds', {
+                columnDefs: [
+                    { targets: 0, width: "60px", className: "text-center" },  // ID
+                    { targets: 3, width: "100px", className: "text-center" }, // Ambulance
+                ]
+            });
+        }
+        // Clears old data
+        usersTable.clear();
+
+        if (results.length === 0) {
+            usersTable.draw();
+            return;
+        }
+
+        const currUsrAmb = localStorage.getItem("UnitID")
+
+        // 3. Add rows using the API
+        results.forEach(row => {
+            if(row.AssignedAmbulance == currUsrAmb){
+                usersTable.row.add([
+                    row.UserID,
+                    row.Username,
+                    row.Role,
+                    row.AssignedAmbulance || 0
+                ]).draw(true); // 'false' keeps the current pagination page
+            }
+        });
+
+    } catch (err) {
+        console.error("Error loading data:", err);
+    }
+}
+

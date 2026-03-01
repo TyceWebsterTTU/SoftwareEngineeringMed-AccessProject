@@ -63,3 +63,17 @@ CREATE TABLE `tblOverrideLogs` (
   `OverrideTime` DATETIME,
   PRIMARY KEY (`LogID`)
 );
+
+CREATE TABLE `tblFailedLogins` (
+  `LogID` INT AUTO_INCREMENT,
+  `UserID` VARCHAR(36),
+  `TimeStamp` DATETIME,
+  PRIMARY KEY (`LogID`)
+);
+
+CREATE TABLE `tblCallLogs` (
+  `LogID` INT AUTO_INCREMENT,
+  `ActiveCall` INT,
+  `TimeStamp` DATETIME,
+  PRIMARY KEY (`LogID`)
+);

@@ -3,10 +3,23 @@ let ambulanceTable = null;
 
 function displayCurrentUserInfo() {
     const username = localStorage.getItem('Username');
-    const displayElement = document.getElementById('displayUsername');
+    const displayUserName = document.getElementById('displayUsername');
+    const role = localStorage.getItem('Role')
+    const displayRole = document.getElementById('displayRole')
 
-    if (username && displayElement) {
-        displayElement.textContent = " " + username; // Adds the name next to the icon
+    const ambulance = localStorage.getItem('UnitID')
+    const displayAmbulance = document.getElementById('displayAmbulance')
+
+    if (username && displayUserName) {
+        displayUserName.textContent = " " + username; // Adds the name next to the icon
+    }
+
+    if(role && displayRole){
+        displayRole.textContent = displayRole.textContent + role;
+    }
+
+    if(ambulance && displayAmbulance){
+        displayAmbulance.textContent = displayAmbulance.textContent + ambulance;
     }
 }
 

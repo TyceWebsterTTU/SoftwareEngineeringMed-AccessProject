@@ -25,7 +25,7 @@ const pool = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  timezone: 'local',
+  timezone: 'Z',
   port: 3306,
   waitForConnections: true,
   connectionLimit: 10,
@@ -241,7 +241,7 @@ app.post('/api/unit', async (req, res) => {
     const { UnitID, CaseID, ConnectedESP } = req.body;
 
     try {
-        const strQuery = "INSERT INTO tblAmbulance (UnitID, ShiftStatus, ActiveCall, CaseID, ConnectedESP) VALUES (?, 1, 0, ?, ?)";
+        const strQuery = "INSERT INTO tblAmbulance (UnitID, ShiftStatus, ActiveCall, CaseID, ConnectedESP) VALUES (?, 0, 0, ?, ?)";
         await pool.query(strQuery, [UnitID, CaseID, ConnectedESP]);
         
         res.status(200).json({ status: "Success" });
@@ -501,7 +501,7 @@ app.put('/case', async (req, res) => {
 })
 
 // Create a log when override occurs
-app.post('/api/overrideLogs', async (req, res) => {
+/* app.post('/api/overrideLogs', async (req, res) => {
     const { unitID } = req.body.UnitID
 
     try {
@@ -511,12 +511,12 @@ app.post('/api/overrideLogs', async (req, res) => {
         console.error("Update Error:", err);
         res.status(500).json({ success: false, error: err.message });
     }
-})
+}) */
 
 // Get override logs
 app.get('/api/showOverrideLogs', async (req, res) => {
     try {
-        strQuery = "SELECT * FROM tblOverrideLogs"
+        strQuery = "SELECT UnitID, DATE_FORMAT(OverrideTime, '%b %d, %Y - %h:%i %p') AS OverrideTime FROM tblOverrideLogs"
         const [results] = await pool.query(strQuery)
         res.json(results)
     } catch (err) {
@@ -554,6 +554,7 @@ app.get('/api/inactiveUnits/count', async (req, res) => {
     try {
         strQuery = "SELECT COUNT(*) FROM tblAmbulance WHERE ShiftStatus = 0"
         const [results] = await pool.query(strQuery)
+        res.json(results);
     } catch (err) {
         console.error("Fetch error:", err)
         res.status(500).json({error: err.message})
@@ -565,11 +566,73 @@ app.get('/api/inactiveUnits', async (req, res) => {
     try {
         strQuery = "SELECT * FROM tblAmbulance WHERE ShiftStatus = 0"
         const [results] = await pool.query(strQuery)
+        res.json(results);
     } catch (err) {
         console.error("Fetch error:", err)
         res.status(500).json({error: err.message})
     }
 })
+
+// Get function for all failed logins
+app.get('/api/failedLogins', async (req, res) => {
+    try {
+        let strQuery = "SELECT IFNULL(tblUsers.Username, 'Unknown User') AS Username, DATE_FORMAT(TimeStamp, '%b %d, %Y - %h:%i %p') AS TimeStamp FROM tblFailedLogins LEFT JOIN tblUsers ON tblFailedLogins.UserID = tblUsers.UserID ORDER BY tblFailedLogins.TimeStamp DESC"
+        const [results] = await pool.query(strQuery)
+        res.json(results)
+    } catch (err) {
+        console.error("Fetch error:", err)
+        res.status(500).json({error: err.message})
+    }
+})
+
+// Get function for total number of failed logins
+app.get('/api/failedLogins/count', async (req, res) => {
+    console.log("Route hit")
+    try {
+        let strQuery = "SELECT COUNT(*) FROM tblFailedLogins"
+        const [results] = await pool.query(strQuery)
+        res.json(results)
+    } catch (err) {
+        console.error("Fetch error:", err)
+        res.status(500).json({error: err.message})
+    }
+})
+
+// Post function to add into tblFailedLogins
+app.post('/api/failedLogins', async (req, res) => {
+    const { UserID } = req.body;
+    
+    try {
+        let strQuery = "INSERT INTO tblFailedLogins (UserID, TimeStamp) VALUES (?, NOW())"
+        const [results] = await pool.query(strQuery, [UserID])
+        res.status(200).json({Status: "Success"})
+    } catch (err) {
+        console.error("Error updating table:", err)
+        res.status(500).json({error: err.message})
+    }
+})
+
+// Get function for graph of calls in a week
+app.get('/api/callsPerWeek', async (req, res) => {
+    try {
+        // This query groups by year and week, returning the Monday of that week
+        const strQuery = `
+            SELECT 
+                DATE_FORMAT(DATE_SUB(TimeStamp, INTERVAL WEEKDAY(TimeStamp) DAY), '%Y-%m-%d') AS WeekStart, 
+                COUNT(*) AS CallCount
+            FROM tblCallLogs
+            GROUP BY WeekStart
+            ORDER BY WeekStart ASC
+            LIMIT 12; 
+        `;
+        
+        const [results] = await pool.query(strQuery);
+        res.json(results);
+    } catch (err) {
+        console.error("Graph Data Error:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 
 function hashPassword(pass){

@@ -25,6 +25,7 @@ async function login() {
 
     if (!usr || !pass) {
         alert("Please enter both username and password");
+        // Update tblFailedLogins
         return;
     }
 
@@ -126,6 +127,8 @@ async function updateLogout() {
         console.error("Error:", err)
     }
 }
+
+
 
 async function LoadUserData() {
     try {
@@ -485,44 +488,3 @@ async function sendDataToServer(dataString) {
         console.error("Database logging failed:", err);
     }
 }
-
-
-
-
-// This runs every 5 seconds to check for new dispatch calls
-
-
-
-
-// Call this when the dashboard loads
-if (window.location.pathname.includes("dashboard.html")) {
-    startDispatchPolling();
-}
-
-async function triggerDispatch() {
-    const unitID = document.getElementById('dispatchUnitID').value;
-    const caseID = document.getElementById('dispatchCaseID').value;
-
-    if (!unitID || !caseID) {
-        alert("Please enter both a Unit ID and a Case ID.");
-        return;
-    }
-
-    try {
-        const response = await fetch("/api/dispatch/trigger", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ unitID, caseID })
-        });
-
-        const data = await response.json();
-        if (data.success) {
-            alert(`Unit ${unitID} has been dispatched to Case ${caseID}`);
-        }
-    } catch (err) {
-        console.error("Dispatch Error:", err);
-    }
-}
-
-
-

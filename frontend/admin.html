@@ -62,7 +62,7 @@
             <h2>Welcome to the Admin Dashboard.</h2>
             <p></p>
             
-            <div class="container-fluid content-inner mt-n5 py-0">
+            <div class="container-fluid content-inner mt-5 py-0">
                 <div class="row justify-content-start">
                     <div class="col-md-4 col-lg-3 mb-4"> 
                         <div class="card shadow-sm border-0 rounded-3 h-100">
@@ -82,7 +82,33 @@
                             </div>
                         </div>
                     </div>
+                    <!--Failed Logins Modal-->
+                    <div id="failedLoginsModal" class="modal fade" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-header bg-white border-bottom pt-4 px-4">
+                                <h5 class="modal-title text-dark">Recent Failed Login Attempts</h5> 
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body bg-white">
+                                <div class="table-responsive">
+                                    <table class="table table-hover w-100" id="tblFailedLogins">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Username</th>
+                                                <th>Timestamp</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tblOnlineUnitsBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="modal-footer bg-white">
+                                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
 
+                    <!--Total Online Units Display-->
                     <div class="col-md-4 col-lg-3 mb-4"> 
                         <div class="card shadow-sm border-0 rounded-3 h-100">
                             <div class="card-body d-flex align-items-center justify-content-around py-0">
@@ -93,7 +119,7 @@
                                 </div>
                                 <div class="text-center">
                                     <h5 class="mb-0 fw-bold" style="font-size: 15px;">Total Active Units</h6>
-                                    <h4 class="mb-1 fw-bold text-center mt-0 pt-0" id="totalActiveUnits" style="font-size: 30px;">0</h4>
+                                    <h4 class="mb-1 fw-bold text-center mt-0 pt-0" id="totalActiveUnits" style="font-size: 30px;"></h4>
                                     <button class="btn btn-primary btn-sm px-2 mt-2" onclick="showTotalActiveUnits()">
                                         View List <i class="bi bi-chevron-right"></i>
                                     </button>
@@ -101,7 +127,34 @@
                             </div>
                         </div>
                     </div>
+                    <!--Total Online Units Modal-->
+                    <div id="onlineUnitsModal" class="modal fade" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-header bg-white border-bottom pt-4 px-4">
+                                <h5 class="modal-title text-dark">All Active Units</h5> 
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body bg-white">
+                                <div class="table-responsive">
+                                    <table class="table table-hover w-100" id="tblOnlineUnits">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Unit</th>
+                                                <th>Case Number</th>
+                                                <th>Device Number</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tblOnlineUnitsBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="modal-footer bg-white">
+                                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
 
+                    <!--Total Offline Units Display-->
                     <div class="col-md-4 col-lg-3 mb-4">
                         <div class="card shadow-sm border-0 rounded-3 h-100">
                             <div class="card-body d-flex align-items-center justify-content-around py-0">
@@ -112,7 +165,7 @@
                                 </div>
                                 <div class="text-center">
                                     <h5 class="mb-0 fw-bold" style="font-size: 15px;">Total Offline Units</h5>
-                                    <h4 class="mb-1 fw-bold text-center mt-0 pt-0" id="totalOfflineUnits" style="font-size: 30px;">0</h4>
+                                    <h4 class="mb-1 fw-bold text-center mt-0 pt-0" id="totalOfflineUnits" style="font-size: 30px;"></h4>
                                     <button class="btn btn-primary btn-sm px-2 mt-2" onclick="showTotalOfflineUnits()">
                                         View List <i class="bi bi-chevron-right"></i>
                                     </button>
@@ -120,7 +173,34 @@
                             </div>
                         </div>
                     </div>
+                    <!--Total Offline Units Modal-->
+                    <div id="offlineUnitsModal" class="modal fade" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-header bg-white border-bottom pt-4 px-4">
+                                <h5 class="modal-title text-dark">All Offline Units</h5> 
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body bg-white">
+                                <div class="table-responsive">
+                                    <table class="table table-hover w-100" id="tblOfflineUnits">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Unit</th>
+                                                <th>Case Number</th>
+                                                <th>Device Number</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tblOfflineUnitsBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="modal-footer bg-white">
+                                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
 
+                    <!--OverrideLogs Display-->
                     <div class="col-md-4 col-lg-3 mb-4">
                         <div class="card shadow-sm border-0 rounded-3 h-100">
                             <div class="card-body d-flex align-items-center justify-content-around py-0">
@@ -138,7 +218,7 @@
                             </div>
                         </div>
                     </div>
-                    <!--OverrideLogs-->
+                    <!--OverrideLogs Modal-->
                     <div id="overrideLogsModal" class="modal fade" tabindex="-1">
                         <div class="modal-dialog">
                             <div class="modal-header bg-white border-bottom pt-4 px-4">
@@ -150,7 +230,7 @@
                                     <table class="table table-hover w-100" id="tblOverrideLogs">
                                         <thead class="table-light">
                                             <tr>
-                                                <th>UnitID</th>
+                                                <th>Unit</th>
                                                 <th>Timestamp</th>
                                             </tr>
                                         </thead>
@@ -182,7 +262,7 @@
                     </div>
                 </div>
             </div>
-
+            <!--
             <div class="row justify-content-center mb-5">
                 <div class="col-12 col-xl-10">
                     <div class="table-responsive shadow rounded-3 overflow-hidden border bg-white text-dark">
@@ -190,8 +270,8 @@
                             <thead id="tableHead" class="text-center">
                                 <tr>
                                     <th class="text-center">Username</th>
-                                    <th class="text-center">LastLoginTime</th>
-                                    <th class="text-center">LastLogoutTime</th>
+                                    <th class="text-center">Last Login Time</th>
+                                    <th class="text-center">Last Logout Time</th>
                                 </tr>
                             </thead>
                             <tbody id="tableBody">
@@ -200,6 +280,7 @@
                     </div>
                 </div>
             </div>
+            -->
         </div>
     </div>
 
@@ -215,7 +296,7 @@
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <input type="number" id="dispatchCaseID" class="form-control" placeholder="CaseID / Call Number">
+                        <input type="number" id="dispatchCaseID" class="form-control" placeholder="Case Number">
                     </div>
                     <div class="col-md-3">
                         <select id="assignmentType" class="form-select">
@@ -235,13 +316,13 @@
             <div class="card-body">
                 <div class="row g-3 align-items-end">
                     <div class="col-md-3">
-                        <input type="text" id="newUnitID" class="form-control" placeholder="UnitID">
+                        <input type="text" id="newUnitID" class="form-control" placeholder="Unit Number">
                     </div>
                     <div class="col-md-3">
-                        <input type="text" id="newCaseID" class="form-control" placeholder="CaseID">
+                        <input type="text" id="newCaseID" class="form-control" placeholder="Case Number">
                     </div>
                     <div class="col-md-3">
-                        <input type="text" id="newESP32ID" class="form-control" placeholder="ESP32 Number">
+                        <input type="text" id="newESP32ID" class="form-control" placeholder="Connected Device Number">
                     </div>
                     <div class="col-md-3">
                         <button class="btn btn-primary w-100" onclick="addUnit()">Add Unit</button>
@@ -250,18 +331,18 @@
             </div>
         </div>
 
-        <div class="mb-4">
+        <div class="card mb-4">
             <div class="card-body">
                 <div class="row g-3 align-items-end">
-                    <div class="table-responsive shadow rounded-3 overflow-hidden border bg-white text-dark">
+                    <div class="table-responsive rounded-3 overflow-hidden border bg-white text-dark">
                         <table class="table table-hover table-bordered align-middle text-center mb-0 bg-white table-striped" id="tblAmbulance">
                             <thead id="tableHead" class="text-center">
                                 <tr>
-                                    <th class="text-center">UnitID</th>
-                                    <th class="text-center">Shift Status</th>
-                                    <th class="text-center">Active</th>
-                                    <th class="text-center">CaseID</th>
-                                    <th class="text-center">ConnectedESP</th>
+                                    <th class="text-center">Unit Number</th>
+                                    <th class="text-center">On Shift</th>
+                                    <th class="text-center">Actively on Call</th>
+                                    <th class="text-center">Case Number</th>
+                                    <th class="text-center">Device Number</th>
                                     <th class="text-center">Actions</th>
                                     <th class="text-center">Manual Override</th>
                                 </tr>
@@ -288,16 +369,16 @@
                 <input type="hidden" id="editUnitID">
 
                 <div class="mb-2 text-dark">
-                    <label for="editShiftStatus">Shift Status</label>
+                    <label for="editShiftStatus">On Shift</label>
                     <input type="text" id="editShiftStatus" class="form-control">
 
-                    <label for="editActiveCall">Active Call</label>
+                    <label for="editActiveCall">Actively On Call</label>
                     <input type="text" id="editActiveCall" class="form-control">
 
-                    <label for="editCaseID">CaseID</label>
+                    <label for="editCaseID">Case Number</label>
                     <input type="text" id="editCaseID" class="form-control">
 
-                    <label for="editConnectedESP">Connected ESP32</label>
+                    <label for="editConnectedESP">Connected Device Number</label>
                     <input type="text" id="editConnectedESP" class="form-control">
                 </div>
             </div>
@@ -331,10 +412,10 @@
                             <option value="Admin">Admin</option>
                         </select>
                     </div>
-                    <div class="col-md-2">
-                        <input type="number" id="newAmbulance" class="form-control" placeholder="Ambulance #">
-                    </div>
                     <div class="col-md-3">
+                        <input type="number" id="newAmbulance" class="form-control" placeholder="Ambulance # (Enter 0 if not a Paramedic)">
+                    </div>
+                    <div class="col-md-2">
                         <button class="btn btn-primary w-100" onclick="addUsers()">Add User</button>
                     </div>
                 </div>
@@ -348,7 +429,7 @@
                         <table class="table table-hover table-bordered align-middle text-center mb-0 bg-white table-striped" id="tblUsers">
                             <thead id="tableHead" class="text-center">
                                 <tr>
-                                    <th class="text-center">ID</th>
+                                    <th class="text-center">User ID</th>
                                     <th class="text-center">Username</th>
                                     <th class="text-center">Role</th>
                                     <th class="text-center">Ambulance</th>
@@ -414,8 +495,8 @@
                     <table class="table table-hover table-bordered align-middle text-center mb-0 bg-white table-striped" id="tblCases">
                         <thead id="tableHead" class="text-center">
                             <tr>
-                                <th class="text-center">CaseID</th>
-                                <th class="text-center">ESPID</th>
+                                <th class="text-center">Case Number</th>
+                                <th class="text-center">Device Number</th>
                                 <th class="text-center">Locked</th>
                                 <th class="text-center">Open</th>
                                 <th class="text-center">Needed</th>

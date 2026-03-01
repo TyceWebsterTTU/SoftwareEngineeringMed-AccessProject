@@ -6,16 +6,24 @@
 
 Preferences preferences;
 String targetUuidStr = ""; // We will use String comparison
-const int SERVO_PIN = 13;    
+const int SERVO_PIN = 13;
+const int BUTTON_PIN = 27;    
+const int LED_PIN = 2; // Usually the built-in LED on ESP32
 const int RSSI_THRESHOLD = -80;
-int scanTime = 2; 
+int scanTime = 1; 
+unsigned long lastLogAttempt = 0;
 
 Servo myServo;
 bool deviceInRange = false;
 bool wasDeviceInRange = false; 
 bool armed = false;
-bool overrideOccurred = false;
-bool logDelivered = true;
+
+// Volatile variables are needed because they are changed inside an interrupt (ISR)
+volatile bool overrideOccurred = false;
+volatile bool logDelivered = true;
+
+// New flag to lock the system out until a reset is sent
+bool inOverrideMode = false; 
 
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
     void onResult(BLEAdvertisedDevice advertisedDevice) {
@@ -33,12 +41,33 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
     }
 };
 
+// Interrupt Service Routine for the button
+void IRAM_ATTR handleOverride() {
+  overrideOccurred = true;
+  logDelivered = false; 
+  digitalWrite(LED_PIN, HIGH);
+}
+
+void operateServo(bool open) {
+    myServo.attach(SERVO_PIN);
+    myServo.write(open ? 75 : 115);
+    delay(400);
+    myServo.write(95);
+    delay(200);
+    myServo.detach();
+}
+
 void setup() {
   Serial.begin(115200);
   ESP32PWM::allocateTimer(0);
   delay(1000); 
-  pinMode(OVERRIDE_PIN, INPUT_PULLUP);
-  attachInterrupt(OVERRIDE_PIN, handleOverride, FALLING)
+  
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW); // Ensure LED is off at startup
+  
+  // Attach the interrupt to the button pin
+  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), handleOverride, FALLING);
   
   preferences.begin("dispatch", false);
   // Load saved UUID or use a dummy that won't match anything accidentally
@@ -60,12 +89,36 @@ void setup() {
 }
 
 void loop() {
-  // 1. ALWAYS check Serial first (this stays fast)
+  // 1. HANDLE BUTTON OVERRIDE (Triggered by ISR)
+  if (overrideOccurred) {
+    inOverrideMode = true;         // Lock out the scanner
+    digitalWrite(LED_PIN, HIGH);   // Turn on the warning LED
+    operateServo(true);            // Open the servo
+    armed = false;                 // Disarm the system
+    overrideOccurred = false;      // Reset the trigger flag
+  }
+
+  // 2. HANDLE SERIAL COMMANDS
   if (Serial.available() > 0) {
     String incoming = Serial.readStringUntil('\n');
     incoming.trim();
 
-    if (incoming.startsWith("ARM:")) {
+    if (incoming == "LOG_ACK") {
+      logDelivered = true;
+      Serial.println("STATUS:LOG_CLEARED");
+    }
+    else if (incoming == "ADMIN_RESET_CMD") {
+    inOverrideMode = false;      
+    overrideOccurred = false;    // Clear any pending button presses
+    armed = false;               // Disarm so it doesn't immediately scan again
+    wasDeviceInRange = false;    // Reset tracking
+    logDelivered = true;         // Stop the "Override Pressed" serial spam
+    
+    digitalWrite(LED_PIN, LOW);  // Turn off LED
+    Serial.println("STATUS:SYSTEM_RESET_SUCCESSFUL");
+    Serial.println("INFO:System disarmed and cleared.");
+  }
+    else if (incoming.startsWith("ARM:")) {
       targetUuidStr = incoming.substring(4);
       targetUuidStr.trim();
       preferences.putString("target_uuid", targetUuidStr);
@@ -73,76 +126,43 @@ void loop() {
       Serial.print("CONFIRM_ARM:");
       Serial.println(targetUuidStr);
     }
-
-    if (incoming == "DISARM") {
+    else if (incoming == "DISARM") {
       armed = false;
+      if (wasDeviceInRange) {
+        operateServo(false);
+      }
       wasDeviceInRange = false;
-      // Force stop any active scan immediately
-      BLEDevice::getScan()->stop(); 
-      Serial.println("DISARMED");
-    }
-
-    if ((incoming == "DISARM") && (wasDeviceInRange)) {
-      armed = false;
-      wasDeviceInRange = false;
-      // Force stop any active scan immediately
-      operateServo(false);
-      BLEDevice::getScan()->stop(); 
       Serial.println("DISARMED");
     }
   }
 
-    // 2. BLE SCANNING — ONLY WHEN ARMED
-    if (armed) {
-    BLEScan* pBLEScan = BLEDevice::getScan();
-    if (!pBLEScan->isScanning()) {
-        deviceInRange = false; 
-        // Setting the second parameter to 'false' for non-blocking
-        pBLEScan->start(scanTime, scanCompleteCB, false); 
-    }
+  // 3. BLE SCANNING — ONLY WHEN ARMED AND NOT LOCKED OUT
+  if (armed && !inOverrideMode) {
+    deviceInRange = false;
+
+    BLEDevice::getScan()->start(scanTime, false);
 
     if (deviceInRange && !wasDeviceInRange) {
-        Serial.println("MATCH_FOUND");
-        operateServo(true);
-        wasDeviceInRange = true;
-    } else if (!deviceInRange && wasDeviceInRange) {
-        Serial.println("TARGET_LOST");
-        operateServo(false);
-        wasDeviceInRange = false;
+      Serial.println("MATCH_FOUND");
+      operateServo(true);
+      wasDeviceInRange = true;
     }
-  }
+    else if (!deviceInRange && wasDeviceInRange) {
+      Serial.println("TARGET_LOST");
+      operateServo(false);
+      wasDeviceInRange = false;
+    }
 
     BLEDevice::getScan()->clearResults();
-
-  delay(100);
-
-  if (!logDelivered) {
-    Serial.println("LOG:OVERRIDE_PRESSED");
-    // We don't set logDelivered = true yet! 
-    // We wait for the browser to tell us it heard it.
   }
- 
-  if (Serial.available() > 0) {
-    String response = Serial.readStringUntil('\n');
-    if (response == "LOG_ACK") {
-      logDelivered = true;
-      overrideOccurred = false;
-      Serial.println("STATUS:LOG_CLEARED");
+
+  // 4. LOG DELIVERY RETRY & LOOP PACING
+  if (!logDelivered) {
+    if (millis() - lastLogAttempt > 1000) { // Only print once per second
+      Serial.println("LOG:OVERRIDE_PRESSED");
+      lastLogAttempt = millis();
+    }
+  } else {
+    delay(100); 
     }
   }
-}
-
-
-void operateServo(bool open) {
-    myServo.attach(SERVO_PIN);
-    myServo.write(open ? 75 : 115);
-    delay(400);
-    myServo.write(95);
-    delay(200);
-    myServo.detach();
-}
-
-void IRAM_ATTR handleOverride() {
-  overrideOccurred = true;
-  logDelivered = false; 
-}
