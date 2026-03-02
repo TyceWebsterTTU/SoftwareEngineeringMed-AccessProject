@@ -10,7 +10,24 @@ let totalOnlineUnitsTable = null;
 let totalOfflineUnitsTable = null;
 let overrideLogsTable = null;
 
-//LoadLoginData();
+document.addEventListener('DOMContentLoaded', displayCurrentUserInfo);
+document.addEventListener('DOMContentLoaded', () => {
+    totalFailedLogins();
+    totalActiveUnits();
+    totalOffilineUnits();
+    initCallsGraph();
+    LoadAmbulanceData();
+    LoadUserData();
+    LoadBoxData();
+
+    setInterval(totalFailedLogins, 30000)
+    setInterval(totalActiveUnits, 30000)
+    setInterval(totalOffilineUnits, 30000)
+    setInterval(initCallsGraph, 30000)
+    setInterval(LoadAmbulanceData, 5000)
+    setInterval(LoadUserData, 5000)
+    setInterval(LoadBoxData, 5000)
+});
 
 async function initCallsGraph() {
     try {
@@ -350,19 +367,6 @@ async function showRecentOverrideLogs() {
         console.error("Error loading data:", err);
     }
 }
-
-document.addEventListener('DOMContentLoaded', displayCurrentUserInfo);
-document.addEventListener('DOMContentLoaded', () => {
-    totalFailedLogins();
-    totalActiveUnits();
-    totalOffilineUnits();
-    initCallsGraph();
-
-    setInterval(totalFailedLogins, 30000)
-    setInterval(totalActiveUnits, 30000)
-    setInterval(totalOffilineUnits, 30000)
-    setInterval(initCallsGraph, 30000)
-});
 
 async function logout() {
     // Update logout timestamp

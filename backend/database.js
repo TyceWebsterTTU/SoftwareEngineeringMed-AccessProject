@@ -347,7 +347,8 @@ app.get('/api/dispatch/status/:UnitID', async (req, res) => {
     try {
         const strQuery = `
             SELECT 
-                a.ActiveCall, 
+                a.ActiveCall,
+                a.OverrideActive, 
                 u.ServiceUUID, 
                 c.Needed -- This is your new column
             FROM tblAmbulance a

@@ -13,7 +13,9 @@ let ambulanceTable = null;
 let previousOverrideState = 0; 
 let isHardwareResetPending = false;
 
-startDispatchPolling();
+document.addEventListener('DOMContentLoaded', () => {
+    startDispatchPolling()
+});
 
 function displayCurrentUserInfo() {
     const username = localStorage.getItem('Username');
@@ -314,57 +316,58 @@ async function sendDataToServer(message) {
 }
 
 
-function startDispatchPolling() {
-    setInterval(async () => {
-        const UnitID = localStorage.getItem('UnitID');
-        if (!UnitID) return;
+async function startDispatchPolling() {
+    const UnitID = localStorage.getItem('UnitID');
+    if (!UnitID) return;
 
-        try {
-            const response = await fetch(`/api/dispatch/status/${UnitID}`);
-            if (!response.ok) return;
+    try {
+        const response = await fetch(`/api/dispatch/status/${UnitID}`);
+        if (!response.ok) return;
 
-            const status = await response.json();
-            const currentDBState = status.OverrideActive // 1 for active, 0 for reset
+        const status = await response.json();
+        const currentDBState = status.OverrideActive // 1 for active, 0 for reset
 
-            // SMARTER RESET LOGIC:
-            // Only fire if the state actually flipped from 1 -> 0 
-            // AND we haven't already successfully sent the reset.
-            if (previousOverrideState === 1 && currentDBState === 0) {
-                console.log("ALARM CLEARED: Sending relock command to hardware.");
-                try {
-                    await sendResetToHardware()
-                    // We successfully sent it, so we don't need to do it again next loop
-                    previousOverrideState = 0
-                } catch (error) {
-                    console.error("Hardware reset failed, will retry next poll.")
-                }
-            } else {
-                previousOverrideState = currentDBState;
+        console.log(`Polling DB State: ${currentDBState}, Prev Stat: ${previousOverrideState}`)
+
+        // SMARTER RESET LOGIC:
+        // Only fire if the state actually flipped from 1 -> 0 
+        // AND we haven't already successfully sent the reset.
+        if (previousOverrideState === 1 && currentDBState === 0) {
+            console.log("ALARM CLEARED: Sending relock command to hardware.");
+            const success = await sendResetToHardware()
+
+            if (success) {
+                previousOverrideState = 0
+                hasSentArmCommand = false
             }
-            
-            // Logic: Call is active AND database says narcotics are 'Needed'
-            if (status.ActiveCall > 0 && status.Needed === 1 && !hasSentArmCommand) {
-                console.log("Narcotics Needed for Case. Arming...");
-                
-                if (port && port.writable) {
-                    armNarcoticsBox(status.ServiceUUID);
-                    hasSentArmCommand = true;
-                } else {
-                    console.warn("Hardware not connected, but narcotics are needed!");
-                }
-            } 
-            
-            // Reset: If call is cleared OR dispatcher changes 'Needed' back to 0
-            else if (status.ActiveCall === 0 || status.Needed === 0) {
-                if (hasSentArmCommand) {
-                    console.log("Database cleared. Sending DISARM to hardware...");
-                    disarmNarcoticsBox();
-                }
-            }
-        } catch (err) {
-            console.error("Polling error:", err);
         }
-    }, 5000); 
+        
+        // Logic: Call is active AND database says narcotics are 'Needed'
+        if (status.OverrideActive === 0 && status.ActiveCall > 0 && status.Needed === 1 && !hasSentArmCommand) {
+            console.log("Narcotics Needed for Case. Arming...");
+            
+            if (port && port.writable) {
+                armNarcoticsBox(status.ServiceUUID);
+                hasSentArmCommand = true;
+            }
+        } 
+        
+        // Reset: If call is cleared OR dispatcher changes 'Needed' back to 0
+        else if (status.OverrideActive === 0 && status.ActiveCall === 0 || status.Needed === 0) {
+            if (hasSentArmCommand) {
+                console.log("Database cleared. Sending DISARM to hardware...");
+                disarmNarcoticsBox();
+                hasSentArmCommand = false
+            }
+        }
+
+        previousOverrideState = currentDBState
+
+    } catch (err) {
+        console.error("Polling error:", err);
+    } 
+
+    setTimeout(startDispatchPolling, 3000)
 }
 
 // Placeholder for right now. Can be changed as needed.
@@ -380,7 +383,7 @@ async function sendResetToHardware() {
         console.log("Hardware Reset Command Sent Successfully");
         return true;
     } catch (error) {
-        console.error("Hardware Write Error:", err);
+        console.error("Hardware Write Error:", error);
         return false;
     } finally {
         writer.releaseLock();
