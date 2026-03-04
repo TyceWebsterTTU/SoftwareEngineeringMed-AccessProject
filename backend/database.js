@@ -601,11 +601,24 @@ app.get('/api/failedLogins/count', async (req, res) => {
 
 // Post function to add into tblFailedLogins
 app.post('/api/failedLogins', async (req, res) => {
-    const { UserID } = req.body;
-    
     try {
-        let strQuery = "INSERT INTO tblFailedLogins (UserID, TimeStamp) VALUES (?, NOW())"
-        const [results] = await pool.query(strQuery, [UserID])
+        const { usr } = req.body;
+        const username = usr || null;
+
+        let idToInsert = null;
+
+        if (username) {
+            let strQuery = "SELECT UserID FROM tblUsers WHERE Username = ?";
+            const [results] = await pool.query(strQuery, [username]);
+
+            if (results && results.length > 0) {
+                idToInsert = results[0].UserID;
+            }
+        }
+
+        const insertQuery = "INSERT INTO tblFailedLogins (UserID, TimeStamp) VALUES (?, NOW())"
+        await pool.query(insertQuery, [idToInsert])
+
         res.status(200).json({Status: "Success"})
     } catch (err) {
         console.error("Error updating table:", err)
@@ -631,6 +644,23 @@ app.get('/api/callsPerWeek', async (req, res) => {
         res.json(results);
     } catch (err) {
         console.error("Graph Data Error:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/ambulance/active', async (req, res) =>{
+    try{
+        const { UnitID } = req.body;
+
+        if (!UnitID) {
+            return res.status(400).json({ error: 'UnitID is required' });
+        }
+
+        const strQuery = `SELECT ActiveCall from tblAmbulance WHERE UnitID = ? AND ShiftStatus = 1 AND ActiveCall > 0`;
+        const [results] = await pool.query(strQuery, [UnitID])
+        res.json(results)
+    } catch(err){
+        console.error("Fetching error:", err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -671,6 +701,7 @@ async function checkDatabaseHealth() {
     }
   }
 }
+
 
 checkDatabaseHealth();
 
