@@ -1,6 +1,9 @@
 let port;
 let reader;
 
+let deleteID = null
+let deleteType = null
+let callsChart = null;
 let loginTable = null;
 let usersTable = null;
 let boxesTable = null;
@@ -10,7 +13,48 @@ let totalOnlineUnitsTable = null;
 let totalOfflineUnitsTable = null;
 let overrideLogsTable = null;
 
+function showAlerts(message, type = "success") {
+    const alertPlaceholder = document.getElementById('globalAlertPlaceholder');
+    if (!alertPlaceholder) return;
+    const wrapper = document.createElement('div');
+    wrapper.style.pointerEvents = "auto"
+
+    wrapper.innerHTML = 
+        `<div class="alert alert-${type} shadow-lg border border-2 border-secondary text-center p-4 animate__animated animate__zoomIn" 
+             role="alert" 
+             style="min-width: 350px; border-radius: 15px; background: white; pointer-events: auto;">
+            <div class="mb-3">
+                <i class="bi ${type === 'success' ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger'}" 
+                   style="font-size: 3rem;"></i>
+            </div>
+            <h4 class="alert-heading fw-bold text-dark">${type === 'success' ? 'Success!' : 'Error!'}</h4>
+            <p class="mb-0 text-dark fw-bold">${message}</p>
+            <button type="button" class="btn ${type === 'success' ? 'btn-success' : 'btn-danger'} mt-3 px-4 fw-bold" id="alertOkBtn">OK</button>
+        </div>`
+
+    alertPlaceholder.innerHTML = '';
+    alertPlaceholder.append(wrapper);
+
+    // Manual click handler for the OK button
+    const okBtn = wrapper.querySelector('#alertOkBtn');
+    okBtn.addEventListener('click', () => {
+        const bsAlert = bootstrap.Alert.getOrCreateInstance(wrapper.querySelector('.alert'));
+        bsAlert.close();
+        wrapper.remove();
+    });
+
+    // Auto-close after 3 seconds (increased for better readability)
+    setTimeout(() => {
+        if (wrapper.parentNode) {
+            const bsAlert = bootstrap.Alert.getOrCreateInstance(wrapper.querySelector('.alert'));
+            if (bsAlert) bsAlert.close();
+            setTimeout(() => wrapper.remove(), 500);
+        }
+    }, 5000);
+}
+
 document.addEventListener('DOMContentLoaded', displayCurrentUserInfo);
+// Refreshes all functions in admin
 document.addEventListener('DOMContentLoaded', () => {
     totalFailedLogins();
     totalActiveUnits();
@@ -39,41 +83,47 @@ async function initCallsGraph() {
 
         const ctx = document.getElementById('canGraph').getContext('2d');
 
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Calls Completed',
-                    data: counts,
-                    borderColor: '#0d6efd',
-                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 4,
-                    pointBackgroundColor: '#0d6efd'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false, // Important: Allows graph to follow the 300px height
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { mode: 'index', intersect: false }
+        if (callsChart) {
+            callsChart.data.labels = labels;
+            callsChart.data.datasets[0].data = counts
+            callsChart.update()
+        } else {
+            callsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Calls Completed',
+                        data: counts,
+                        borderColor: '#0d6efd',
+                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#0d6efd'
+                    }]
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { display: true, color: '#f0f0f0' },
-                        ticks: { stepSize: 1 }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false, // Important: Allows graph to follow the 300px height
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { mode: 'index', intersect: false }
                     },
-                    x: {
-                        grid: { display: false }
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { display: true, color: '#f0f0f0' },
+                            ticks: { stepSize: 1 }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
     } catch (err) {
         console.error("Failed to load graph:", err);
     }
@@ -119,8 +169,13 @@ async function showFailedLogins() {
         // Get the DataTable instance
         if (!failedLoginsTable) {
             failedLoginsTable = new DataTable('#tblFailedLogins', {
+                searching: false,   // Removes the Search bar
+                paging: false,      // Removes Pagination (Next/Prev buttons)
+                info: false,        // Removes "Showing 1 of X entries" text
+                lengthChange: false,
+                order: [[1, 'desc']],
                 columnDefs: [
-                    { targets: 0, width: "60px", className: "text-center" },
+                    { targets: 0, width: "60px", className: "text-center",  orderable: false },
                     { targets: 1, width: "60px", className: "text-center" }
                 ]
             });
@@ -192,6 +247,10 @@ async function showTotalActiveUnits() {
         // Get the DataTable instance
         if (!totalOnlineUnitsTable) {
             totalOnlineUnitsTable = new DataTable('#tblOnlineUnits', {
+                searching: false,   // Removes the Search bar
+                paging: false,      // Removes Pagination (Next/Prev buttons)
+                info: false,        // Removes "Showing 1 of X entries" text
+                lengthChange: false,
                 columnDefs: [
                     { targets: 0, width: "60px", className: "text-center" },
                     { targets: 1, width: "60px", className: "text-center" },
@@ -297,6 +356,10 @@ async function showTotalOfflineUnits() {
         // Get the DataTable instance
         if (!totalOfflineUnitsTable) {
             totalOfflineUnitsTable = new DataTable('#tblOfflineUnits', {
+                searching: false,   // Removes the Search bar
+                paging: false,      // Removes Pagination (Next/Prev buttons)
+                info: false,        // Removes "Showing 1 of X entries" text
+                lengthChange: false,
                 columnDefs: [
                     { targets: 0, width: "60px", className: "text-center" },
                     { targets: 1, width: "60px", className: "text-center" },
@@ -342,6 +405,10 @@ async function showRecentOverrideLogs() {
         // Get the DataTable instance
         if (!overrideLogsTable) {
             overrideLogsTable = new DataTable('#tblOverrideLogs', {
+                searching: false,   // Removes the Search bar
+                paging: false,      // Removes Pagination (Next/Prev buttons)
+                info: false,        // Removes "Showing 1 of X entries" text
+                lengthChange: false,
                 columnDefs: [
                     { targets: 0, width: "60px", className: "text-center" },
                     { targets: 1, width: "60px", className: "text-center" }
@@ -479,14 +546,16 @@ async function LoadUserData() {
 
         // 3. Add rows using the API
         results.forEach(row => {
+            const actionButtons = `
+                <div class="d-flex justify-content-center gap-2">
+                    <button class="btn btn-danger btn-sm" onclick="confirmDelete('${row.UserID}', 'user')">Delete</button>
+                    <button class="btn btn-success btn-sm" onclick="editUsers('${row.UserID}')">Edit</button>
+                </div>`;
             usersTable.row.add([
                 row.Username,
                 row.Role,
                 row.AssignedAmbulance || 0,
-                `<div class="d-flex justify-content-center gap-2">
-                    <button class="btn btn-danger btn-sm" onclick="removeUsers('${row.UserID}')">Delete</button>
-                    <button class="btn btn-success btn-sm" onclick="editUsers('${row.UserID}')">Edit</button>
-                </div>`
+                actionButtons
             ]).draw(false); // 'false' keeps the current pagination page
         });
 
@@ -581,6 +650,9 @@ async function LoadAmbulanceData() {
 
         // 3. Add rows using the API
         results.forEach(row => {
+            const deleteBtn = `<button class="btn btn-danger btn-sm" onclick="confirmDelete('${row.UnitID}', 'unit')">Delete</button>`;
+            const editBtn = `<button class="btn btn-success btn-sm" onclick="editUnits('${row.UnitID}')">Edit</button>`;
+
             const securityDisplay = row.OverrideActive == 1
                 ? `<button class="btn btn-warning btn-sm" onclick="overrideReset('${row.UnitID}')">RESET OVERRIDE</button>`
                 : `<span class="badge bg-success">SECURE</span>`;
@@ -590,10 +662,7 @@ async function LoadAmbulanceData() {
                 row.ActiveCall,
                 row.CaseID,
                 row.ConnectedESP,
-                `<div class="d-flex justify-content-center gap-2">
-                    <button class="btn btn-danger btn-sm" onclick="removeUnit('${row.UnitID}')">Delete</button>
-                    <button class="btn btn-success btn-sm" onclick="editUnits('${row.UnitID}')">Edit</button>
-                </div>`,
+                `<div class="d-flex justify-content-center gap-2">${deleteBtn}${editBtn}</div>`,
                 securityDisplay
             ]).draw(false); // 'false' keeps the current pagination page
         });
@@ -616,9 +685,9 @@ async function addUnit() {
     });
 
     if (!fetchRes.ok) {
-        alert("Failed to add unit");
+        showAlerts("Failed to add unit", "danger");
     } else {
-        alert("Unit added!");
+        showAlerts("Unit added!", "success");
         // --- CLEAR FIELDS HERE ---
         document.getElementById('newUnitID').value = '';
         document.getElementById('newCaseID').value = '';
@@ -627,19 +696,68 @@ async function addUnit() {
     }
 }
 
-async function removeUnit(id) {
-    if (!confirm("Are you sure want to delete this user?")) return;
+function confirmDelete(id, type) {
+    console.log("Delete triggered for:", id, type);
 
-    // FIXED: Use backticks (``) so the ${id} variable actually works
-    const fetchRes = await fetch(`/unit/${id}`, {
-        method: "DELETE"
-    });
+    deleteID = id;
+    deleteType = type; // Added semicolon
+    
+    const title = document.getElementById('deleteModalTitle');
+    const msg = document.getElementById('deleteModalMessage');
 
-    if (!fetchRes.ok) {
-        alert("Failed to delete unit");
-    } else {
-        LoadAmbulanceData();
+    // Safety check: if these don't exist in HTML, the code stops here
+    if (!title || !msg) {
+        console.error("Modal elements not found in HTML. Check your IDs.");
+        return;
     }
+
+    if (type === 'user') {
+        title.innerText = "Confirm Delete";
+        msg.innerText = "Are you sure you want to delete this user?";
+    } else {
+        title.innerText = "Confirm Delete";
+        msg.innerText = "Are you sure you want to delete this unit?";
+    }
+
+    // Try-Catch to catch Bootstrap initialization errors
+    try {
+        const modalEl = document.getElementById('deleteConfirmModal');
+        const deleteModal = new bootstrap.Modal(modalEl);
+        deleteModal.show();
+    } catch (err) {
+        console.error("Bootstrap Modal Error:", err);
+    }
+}
+
+document.getElementById('confirmDeleteBtn').onclick = async () => {
+    if (!deleteID || !deleteType) return;
+
+    // Use /unit/ and /user/ based on your backend routes
+    const apiPath = deleteType === 'user' ? `/user/${deleteID}` : `/unit/${deleteID}`;
+
+    try {
+        const fetchRes = await fetch(apiPath, { method: "DELETE" });
+
+        // Hide modal
+        const modalEl = document.getElementById('deleteConfirmModal');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) modalInstance.hide();
+
+        if (!fetchRes.ok) {
+            showAlerts(`Failed to delete ${deleteType}`, "danger");
+        } else {
+            showAlerts(`${deleteType.charAt(0).toUpperCase() + deleteType.slice(1)} deleted!`, "success");
+            // Refresh tables
+            if (deleteType === 'user') LoadUserData();
+            else LoadAmbulanceData();
+        }
+    } catch (err) {
+        console.error("Error during delete:", err);
+        showAlerts("A network error occurred.", "danger");
+    }
+
+    deleteID = null
+    deleteType = null
 }
 
 function editUnits(UnitID) {
@@ -663,7 +781,7 @@ function editUnits(UnitID) {
         myModal.show();
     } catch (err) {
         console.error("Edit unit error:", err);
-        alert("Failed to open edit unit dialog.");
+        showAlerts("Failed to show unit dialog", "danger");
     }
 }
 
@@ -686,7 +804,7 @@ async function saveUnitEdits() {
         // Check if server sent something back
         if (!fetchRes.ok) {
             const err = await fetchRes.json();
-            alert("Error: " + err.message);
+            showAlerts("Error: " + err.message, "danger");
         } 
 
         // Close the modal
@@ -697,10 +815,10 @@ async function saveUnitEdits() {
         // Refresh table data only
         LoadAmbulanceData();
         // Optional nice UX feedback
-        alert("Unit changes saved!");
+        showAlerts("Unit changes saved!", "success");
     } catch (err) {
         console.error("Save unit edit error:", err);
-        alert("Failed to save unit changes.");
+        showAlerts("Failed to save unit changes.", "danger");
     }
 
 }
@@ -742,7 +860,7 @@ async function overrideReset(UnitID) {
             body: JSON.stringify({ UnitID: UnitID })
         })
         if (await fetchRes.json()) {
-            alert("Reset signal sent. Hardware will relock shortly.");
+            showAlerts("Reset signal sent. Hardware will relock shortly.", "success");
             LoadAmbulanceData();
         }
     } catch (err) {
@@ -760,6 +878,19 @@ async function addUsers() {
         AssignedAmbulance: document.getElementById("newAmbulance").value || 0 // Added Ambulance
     };
 
+    let missingFields = []
+
+    if(!user.username) missingFields.push("Username")
+    if(!user.password) missingFields.push("Password")
+    if(!user.role) missingFields.push("Role")
+    if(!user.AssignedAmbulance) missingFields.push("Assigned Ambulance")
+
+    if(missingFields.length > 0) {
+        const errorMessage = "Please fill in the following: " + missingFields.join(", ")
+        showAlerts(errorMessage, "danger")
+        return
+    }
+
     const fetchRes = await fetch("/user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -767,9 +898,9 @@ async function addUsers() {
     });
 
     if (!fetchRes.ok) {
-        alert("Failed to add user");
+        showAlerts("Failed to add user", "success");
     } else {
-        alert("User added!");
+        showAlerts("User added!", "success");
         // --- CLEAR FIELDS HERE ---
         document.getElementById('newUsername').value = '';
         document.getElementById('newPassword').value = '';
@@ -777,21 +908,6 @@ async function addUsers() {
         const ambulanceField = document.getElementById('newAmbulance'); 
         if (ambulanceField) ambulanceField.value = '';
 
-        LoadUserData();
-    }
-}
-
-async function removeUsers(id) {
-    if (!confirm("Are you sure want to delete this user?")) return;
-
-    // FIXED: Use backticks (``) so the ${id} variable actually works
-    const fetchRes = await fetch(`/user/${id}`, {
-        method: "DELETE"
-    });
-
-    if (!fetchRes.ok) {
-        alert("Failed to delete user");
-    } else {
         LoadUserData();
     }
 }
@@ -864,7 +980,7 @@ async function triggerDispatch(isManualClick = true) {
     const requiresNarcotics = (assignmentValue == "1");
 
     if (isManualClick && (!unitID || !caseID)) {
-        alert("Please enter both a Unit ID and a Case ID.");
+        showAlerts("Please enter both a unit and case number.", "danger");
         return;
     }
 
@@ -881,7 +997,7 @@ async function triggerDispatch(isManualClick = true) {
 
         const data = await response.json();
         if (data.success) {
-            alert(`Unit ${unitID} has been dispatched to Case ${caseID}. Narcotics Armed: ${requiresNarcotics ? 'ARMED' : 'OFF'}`);
+            showAlerts(`Unit ${unitID} has been dispatched to Case ${caseID}. Narcotics Armed: ${requiresNarcotics ? 'ARMED' : 'OFF'}`, "success");
         }
 
         console.log("SENDING TO SERVER:", { unitID, caseID, requiresNarcotics });
