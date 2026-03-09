@@ -920,10 +920,10 @@ function editUsers(UserID) {
         document.getElementById("editUserID").value = UserID
         
         //Populate your HTML modal fields
-        document.getElementById("editUsername").value = row[1].textContent;
+        document.getElementById("editUsername").value = row[0].textContent;
         document.getElementById('editPassword').value = "";
-        document.getElementById("editRole").value = row[2].textContent;
-        document.getElementById("editAmbulanceNum").value = row[3].textContent;
+        document.getElementById("editRole").value = row[1].textContent;
+        document.getElementById("editAmbulanceNum").value = row[2].textContent;
 
         // Open the bootstrap modal you already have in your HTML
         const myModal = new bootstrap.Modal(document.getElementById('editUserModal'));

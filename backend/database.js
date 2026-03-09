@@ -650,7 +650,7 @@ app.get('/api/callsPerWeek', async (req, res) => {
 
 app.get('/api/ambulance/active', async (req, res) =>{
     try{
-        const { UnitID } = req.body;
+        const { UnitID } = req.query;
 
         if (!UnitID) {
             return res.status(400).json({ error: 'UnitID is required' });

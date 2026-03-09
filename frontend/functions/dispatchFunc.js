@@ -1,5 +1,109 @@
 let usersTable = null;
 let ambulanceTable = null;
+let callsChart = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+    initCallsGraph();
+    loadAvailableUnits()
+
+    setInterval(initCallsGraph, 30000)
+});
+
+function showAlerts(message, type = "success") {
+    const alertPlaceholder = document.getElementById('globalAlertPlaceholder');
+    if (!alertPlaceholder) return;
+    const wrapper = document.createElement('div');
+    wrapper.style.pointerEvents = "auto"
+
+    wrapper.innerHTML = 
+        `<div class="alert alert-${type} shadow-lg border border-2 border-secondary text-center p-4 animate__animated animate__zoomIn" 
+             role="alert" 
+             style="min-width: 350px; border-radius: 15px; background: white; pointer-events: auto;">
+            <div class="mb-3">
+                <i class="bi ${type === 'success' ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger'}" 
+                   style="font-size: 3rem;"></i>
+            </div>
+            <h4 class="alert-heading fw-bold text-dark">${type === 'success' ? 'Success!' : 'Error!'}</h4>
+            <p class="mb-0 text-dark fw-bold">${message}</p>
+            <button type="button" class="btn ${type === 'success' ? 'btn-success' : 'btn-danger'} mt-3 px-4 fw-bold" id="alertOkBtn">OK</button>
+        </div>`
+
+    alertPlaceholder.innerHTML = '';
+    alertPlaceholder.append(wrapper);
+
+    // Manual click handler for the OK button
+    const okBtn = wrapper.querySelector('#alertOkBtn');
+    okBtn.addEventListener('click', () => {
+        const bsAlert = bootstrap.Alert.getOrCreateInstance(wrapper.querySelector('.alert'));
+        bsAlert.close();
+        wrapper.remove();
+    });
+
+    // Auto-close after 3 seconds (increased for better readability)
+    setTimeout(() => {
+        if (wrapper.parentNode) {
+            const bsAlert = bootstrap.Alert.getOrCreateInstance(wrapper.querySelector('.alert'));
+            if (bsAlert) bsAlert.close();
+            setTimeout(() => wrapper.remove(), 500);
+        }
+    }, 5000);
+}
+
+async function initCallsGraph() {
+    try {
+        const fetchRes = await fetch('/api/callsPerWeek')
+        const data = await fetchRes.json()
+
+        const labels = data.map(row => row.WeekStart)
+        const counts = data.map(row => row.CallCount)
+
+        const ctx = document.getElementById('canGraph').getContext('2d');
+
+        if (callsChart) {
+            callsChart.data.labels = labels;
+            callsChart.data.datasets[0].data = counts
+            callsChart.update()
+        } else {
+            callsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Calls Completed',
+                        data: counts,
+                        borderColor: '#0d6efd',
+                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#0d6efd'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false, // Important: Allows graph to follow the 300px height
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { display: true, color: '#f0f0f0' },
+                            ticks: { stepSize: 1 }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+    } catch (err) {
+        console.error("Failed to load graph:", err);
+    }
+}
 
 function displayCurrentUserInfo() {
     const username = localStorage.getItem('Username');
@@ -150,6 +254,33 @@ async function LoadAmbulanceData() {
     }
 }
 
+async function loadAvailableUnits() {
+    const dropdown = document.getElementById('dispatchUnitID');
+    if(!dropdown) return; // Don't run if the dropdown isn't on the page'
+
+    try {
+        const fetchRes = await fetch('/unitsAvailable', {
+            method: "GET",
+            headers: { "Content-Type": "application/json" }
+        });
+        const availableUnits = await fetchRes.json();
+        console.log("Available Units Response:", availableUnits);
+
+        dropdown.innerHTML = '<option value="">-- Select Available Unit --</option>';
+
+        availableUnits.forEach(unit => {
+            const option = document.createElement('option');
+
+            option.value = unit.UnitID;
+            option.textContent = `Unit #${unit.UnitID}`;
+            dropdown.appendChild(option);
+        });
+    } catch (err) {
+        console.error("Load available unit error:", err);
+        alert("Failed to open load available unit dialog.");
+    }
+}
+
 async function triggerDispatch(isManualClick = true) {
     const unitID = parseInt(document.getElementById('dispatchUnitID').value);
     const caseID = parseInt(document.getElementById('dispatchCaseID').value);
@@ -158,7 +289,7 @@ async function triggerDispatch(isManualClick = true) {
     const requiresNarcotics = (assignmentValue == "1");
 
     if (isManualClick && (!unitID || !caseID)) {
-        alert("Please enter both a Unit ID and a Case ID.");
+        showAlerts("Please enter both a unit and case number.", "danger");
         return;
     }
 
@@ -175,13 +306,11 @@ async function triggerDispatch(isManualClick = true) {
 
         const data = await response.json();
         if (data.success) {
-            alert(`Unit ${unitID} has been dispatched to Case ${caseID}. Narcotics Armed: ${requiresNarcotics ? 'ARMED' : 'OFF'}`);
+            showAlerts(`Unit ${unitID} has been dispatched to Case ${caseID}. Narcotics Armed: ${requiresNarcotics ? 'ARMED' : 'OFF'}`, "success");
         }
 
         console.log("SENDING TO SERVER:", { unitID, caseID, requiresNarcotics });
-
-        LoadAmbulanceData();
-        LoadBoxData();
+        loadAvailableUnits()
     } catch (err) {
         console.error("Dispatch Error:", err);
     }
