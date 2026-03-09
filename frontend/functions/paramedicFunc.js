@@ -483,6 +483,10 @@ async function sendCallStatusToDispatch() {
         if (data.success) {
             console.log('Call successfully completed:', data);
             showAlerts(`Unit ${unitID} is now clear and Case ${caseID} is disarmed.`, "success");
+
+            document.getElementById('txtUnitID').value = ""
+            document.getElementById('txtCaseID').value = ""
+            
             changeLabels();
         } else {
             console.error('Failed to complete call:', data.message);

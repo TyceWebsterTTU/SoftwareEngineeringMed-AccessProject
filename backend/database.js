@@ -333,7 +333,7 @@ app.post('/api/overrideLogs', async (req, res) => {
 app.put('/api/resetOverride', async (req, res) => {
     const { UnitID } = req.body;
     try {
-        strQuery = `UPDATE tblAmbulance LEFT JOIN tblCases ON tblAmbulance.CaseID = tblCases.CaseID SET Needed = 0, OverrideActive = 0 WHERE UnitID = ?`;
+        strQuery = `UPDATE tblAmbulance LEFT JOIN tblCases ON tblAmbulance.CaseID = tblCases.CaseID SET Needed = 0, OverrideActive = 0, ActiveCall = 0 WHERE UnitID = ?`;
         await pool.query(strQuery, [UnitID]);
         res.status(200).json({ status: "Success" });
     } catch (err) {

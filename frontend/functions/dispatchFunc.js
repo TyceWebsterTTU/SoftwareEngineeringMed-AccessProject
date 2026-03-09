@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadAvailableUnits()
 
     setInterval(initCallsGraph, 30000)
+    setInterval(loadAvailableUnits, 5000)
 });
 
 function showAlerts(message, type = "success") {
@@ -266,15 +267,20 @@ async function loadAvailableUnits() {
         const availableUnits = await fetchRes.json();
         console.log("Available Units Response:", availableUnits);
 
-        dropdown.innerHTML = '<option value="">-- Select Available Unit --</option>';
+        const currentOptions = dropdown.querySelectorAll('option').length - 1
 
-        availableUnits.forEach(unit => {
-            const option = document.createElement('option');
+        if (availableUnits.length != currentOptions) {
+            dropdown.innerHTML = '<option value="">-- Select Available Unit --</option>';
 
-            option.value = unit.UnitID;
-            option.textContent = `Unit #${unit.UnitID}`;
-            dropdown.appendChild(option);
-        });
+            availableUnits.forEach(unit => {
+                const option = document.createElement('option');
+
+                option.value = unit.UnitID;
+                option.textContent = `Unit #${unit.UnitID}`;
+                dropdown.appendChild(option);
+            });
+            console.log("Dropdown updated with new available units.");
+        }
     } catch (err) {
         console.error("Load available unit error:", err);
         alert("Failed to open load available unit dialog.");
@@ -307,10 +313,16 @@ async function triggerDispatch(isManualClick = true) {
         const data = await response.json();
         if (data.success) {
             showAlerts(`Unit ${unitID} has been dispatched to Case ${caseID}. Narcotics Armed: ${requiresNarcotics ? 'ARMED' : 'OFF'}`, "success");
+
+            document.getElementById('dispatchUnitID').value = ""
+            document.getElementById('dispatchCaseID').value = ""
+            document.getElementById('assignmentType').value = "1"
+
+            LoadAmbulanceData();
+            loadAvailableUnits()
         }
 
         console.log("SENDING TO SERVER:", { unitID, caseID, requiresNarcotics });
-        loadAvailableUnits()
     } catch (err) {
         console.error("Dispatch Error:", err);
     }

@@ -5,9 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
     <link rel="shortcut icon" href="#">
 </head>
 <body class="bg-secondary">
+    <div id="globalAlertPlaceholder" style="
+        position: fixed; 
+        top: 0; 
+        left: 0; 
+        width: 100vw; 
+        height: 100vh; 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        pointer-events: none; /* Allows clicking 'through' the empty space */
+        z-index: 20000;">
+    </div>
     <div id="LoginView" class="d-flex justify-content-center align-items-center vh-100">
         <div class="card col-11 col-sm-8 col-md-5 col-lg-4 shadow-lg border-0 bg-light">
             <div class="card-body p-4 p-md-5">

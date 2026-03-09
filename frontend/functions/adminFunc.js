@@ -60,10 +60,12 @@ document.addEventListener('DOMContentLoaded', () => {
     totalActiveUnits();
     totalOffilineUnits();
     initCallsGraph();
+    loadAvailableUnits();
     LoadAmbulanceData();
     LoadUserData();
     LoadBoxData();
 
+    setInterval(loadAvailableUnits, 5000)
     setInterval(totalFailedLogins, 30000)
     setInterval(totalActiveUnits, 30000)
     setInterval(totalOffilineUnits, 30000)
@@ -836,15 +838,20 @@ async function loadAvailableUnits() {
         const availableUnits = await fetchRes.json();
         console.log("Available Units Response:", availableUnits);
 
-        dropdown.innerHTML = '<option value="">-- Select Available Unit --</option>';
+        const currentOptions = dropdown.querySelectorAll('option').length - 1
 
-        availableUnits.forEach(unit => {
-            const option = document.createElement('option');
+        if (availableUnits.length != currentOptions) {
+            dropdown.innerHTML = '<option value="">-- Select Available Unit --</option>';
 
-            option.value = unit.UnitID;
-            option.textContent = `Unit #${unit.UnitID}`;
-            dropdown.appendChild(option);
-        });
+            availableUnits.forEach(unit => {
+                const option = document.createElement('option');
+
+                option.value = unit.UnitID;
+                option.textContent = `Unit #${unit.UnitID}`;
+                dropdown.appendChild(option);
+            });
+            console.log("Dropdown updated with new available units.");
+        }
     } catch (err) {
         console.error("Load available unit error:", err);
         alert("Failed to open load available unit dialog.");
@@ -859,9 +866,14 @@ async function overrideReset(UnitID) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ UnitID: UnitID })
         })
-        if (await fetchRes.json()) {
+        const data = await fetchRes.json()
+        
+        if (fetchRes.ok && data.status === "Success") {
             showAlerts("Reset signal sent. Hardware will relock shortly.", "success");
             LoadAmbulanceData();
+        } else {
+            console.error("Server reported failure:", data.error);
+            showAlerts("Failed to reset unit: " + (data.error || "Unknown error"), "danger");
         }
     } catch (err) {
         console.error(err);
@@ -998,12 +1010,16 @@ async function triggerDispatch(isManualClick = true) {
         const data = await response.json();
         if (data.success) {
             showAlerts(`Unit ${unitID} has been dispatched to Case ${caseID}. Narcotics Armed: ${requiresNarcotics ? 'ARMED' : 'OFF'}`, "success");
+
+            document.getElementById('dispatchUnitID').value = ""
+            document.getElementById('dispatchCaseID').value = ""
+            document.getElementById('assignmentType').value = "1"
+
+            LoadAmbulanceData();
+            loadAvailableUnits()
         }
 
         console.log("SENDING TO SERVER:", { unitID, caseID, requiresNarcotics });
-
-        LoadAmbulanceData();
-        LoadBoxData();
     } catch (err) {
         console.error("Dispatch Error:", err);
     }

@@ -43,7 +43,6 @@
                     <li class="nav-item"><a class="nav-link active" id="nav-home" href="#" onclick="showSection('home')">Home</a></li>
                     <li class="nav-item"><a class="nav-link" id="nav-dispatch" href="#" onclick="showSection('dispatch')">Dispatch</a></li>
                     <li class="nav-item"><a class="nav-link" id="nav-users" href="#" onclick="showSection('users')">Users</a></li>
-                    <li class="nav-item"><a class="nav-link" id="nav-boxes" href="#" onclick="showSection('boxes')">Boxes</a></li>
                 </ul>
 
                 <div class="navbar-nav">
@@ -544,7 +543,6 @@
                     // Trigger data loads
                     if (s === 'users') LoadUserData();
                     if (s === 'dispatch') {
-                        loadAvailableUnits();
                         LoadAmbulanceData();
                     }
                     if (s === 'boxes') LoadBoxData();
