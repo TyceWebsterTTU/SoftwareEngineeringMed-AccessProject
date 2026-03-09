@@ -23,9 +23,30 @@
     </style>
 </head>
 <body class="bg-dark text-white">
-    <nav class="navbar navbar-expand-lg bg-primary" data-bs-theme="dark">
+    <div id="globalAlertPlaceholder" style="
+        position: fixed; 
+        top: 0; 
+        left: 0; 
+        width: 100vw; 
+        height: 100vh; 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        pointer-events: none; /* Allows clicking 'through' the empty space */
+        z-index: 20000;">
+    </div>
+        <nav class="navbar navbar-expand-lg bg-primary shadow py-0 my-0" data-bs-theme="dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">Med-Access Dashboard</a>
+            <a class="navbar-brand d-flex align-items-center py-0 my-0" href="#">
+                <img src="Images/Med_Access_Logo_NoRing.svg" 
+                    alt="Logo" 
+                    height="75" 
+                    class="me-2" 
+                    style="filter: drop-shadow(0 0 2px white) drop-shadow(0 0 2px white);
+            image-rendering: -webkit-optimize-contrast;
+            vertical-align: middle;"> <span class="fw-bold">Med-Access Admin</span>
+            </a>
+
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarColor01">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -41,8 +62,9 @@
 
 
                 <div class="nav-item dropdown">
+                    <div class="nav-item dropdown w-100">
                     <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false"><i class="bi bi-person-circle"></i><span id="displayUsername"></span></a>
-                    <div class="dropdown-menu dropdown-menu-end">
+                    <div class="dropdown-menu dropdown-menu-end bg-secondary border-white mt-1 p-3">
                         <h6 id="displayRole">Role: </h6>
                         <h6 id="displayAmbulance">Ambulance: </h6>
                         <div class="dropdown-divider"></div>
@@ -72,7 +94,11 @@
                                 </div>
                         </div>
                         <div class="card bg-secondary text-white mb-4">
-                            <div class="card-header">Incident Status</div>
+                            <div class="card-header d-flex justify-content-center align-items-center gap-2">
+                                <!--Incident Status: -->
+                                <span id="bdgCallStatusActive" class="badge bg-danger" style="display:none">Actively on Call</span>
+                                <span id="bdgCallStatusInactive" class="badge bg-success" style="display:none">Not on Call</span>
+                            </div>
                             <div class="card-body text-center">
                                 <label class="form-label" for="txtUnitID">Unit ID</label>
                                 <input class="form-control" id="txtUnitID" type="text">

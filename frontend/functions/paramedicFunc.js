@@ -15,7 +15,80 @@ let isHardwareResetPending = false;
 
 document.addEventListener('DOMContentLoaded', () => {
     startDispatchPolling()
+    changeLabels();
+    setInterval(changeLabels, 1000)
+    setInterval(startDispatchPolling, 1000)
 });
+
+function showAlerts(message, type = "success") {
+    const alertPlaceholder = document.getElementById('globalAlertPlaceholder');
+    if (!alertPlaceholder) return;
+    const wrapper = document.createElement('div');
+    wrapper.style.pointerEvents = "auto"
+
+    wrapper.innerHTML = 
+        `<div class="alert alert-${type} shadow-lg border border-2 border-secondary text-center p-4 animate__animated animate__zoomIn" 
+             role="alert" 
+             style="min-width: 350px; border-radius: 15px; background: white; pointer-events: auto;">
+            <div class="mb-3">
+                <i class="bi ${type === 'success' ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger'}" 
+                   style="font-size: 3rem;"></i>
+            </div>
+            <h4 class="alert-heading fw-bold text-dark">${type === 'success' ? 'Success!' : 'Error!'}</h4>
+            <p class="mb-0 text-dark fw-bold">${message}</p>
+            <button type="button" class="btn ${type === 'success' ? 'btn-success' : 'btn-danger'} mt-3 px-4 fw-bold" id="alertOkBtn">OK</button>
+        </div>`
+
+    alertPlaceholder.innerHTML = '';
+    alertPlaceholder.append(wrapper);
+
+    // Manual click handler for the OK button
+    const okBtn = wrapper.querySelector('#alertOkBtn');
+    okBtn.addEventListener('click', () => {
+        const bsAlert = bootstrap.Alert.getOrCreateInstance(wrapper.querySelector('.alert'));
+        bsAlert.close();
+        wrapper.remove();
+    });
+
+    // Auto-close after 3 seconds (increased for better readability)
+    setTimeout(() => {
+        if (wrapper.parentNode) {
+            const bsAlert = bootstrap.Alert.getOrCreateInstance(wrapper.querySelector('.alert'));
+            if (bsAlert) bsAlert.close();
+            setTimeout(() => wrapper.remove(), 500);
+        }
+    }, 5000);
+}
+
+
+async function changeLabels() {
+    const unitID = localStorage.getItem('UnitID');
+
+    if (!unitID) {
+        console.error("UnitID not found in localStorage")
+    }
+
+    const response = await fetch(`/api/ambulance/active?UnitID=${unitID}`, {
+        method: 'GET',
+        headers: {'Content-Type': 'application/json'},
+    });
+
+    const data = await response.json(); //  Parse the response
+    const isOnCall = data.length > 0
+
+    const active = document.getElementById("bdgCallStatusActive");
+    const inactive = document.getElementById("bdgCallStatusInactive");
+
+    if (!active || !inactive) return;
+
+    if (isOnCall) {
+        active.style.display = "block";
+        inactive.style.display = "none";
+    } else {
+        inactive.style.display = "block";
+        active.style.display = "none";
+    }
+}
 
 function displayCurrentUserInfo() {
     const username = localStorage.getItem('Username');
@@ -181,6 +254,7 @@ window.addEventListener('load', async () => {
             }
         });
     }
+
 });
 
 /**
@@ -316,58 +390,57 @@ async function sendDataToServer(message) {
 }
 
 
-async function startDispatchPolling() {
-    const UnitID = localStorage.getItem('UnitID');
-    if (!UnitID) return;
+function startDispatchPolling() {
+    setInterval(async () => {
+        const UnitID = localStorage.getItem('UnitID');
+        if (!UnitID) return;
 
-    try {
-        const response = await fetch(`/api/dispatch/status/${UnitID}`);
-        if (!response.ok) return;
+        try {
+            const response = await fetch(`/api/dispatch/status/${UnitID}`);
+            if (!response.ok) return;
 
-        const status = await response.json();
-        const currentDBState = status.OverrideActive // 1 for active, 0 for reset
+            const status = await response.json();
+            const currentDBState = status.OverrideActive // 1 for active, 0 for reset
 
-        console.log(`Polling DB State: ${currentDBState}, Prev Stat: ${previousOverrideState}`)
+            // SMARTER RESET LOGIC:
+            // Only fire if the state actually flipped from 1 -> 0 
+            // AND we haven't already successfully sent the reset.
+            if (previousOverrideState === 1 && currentDBState === 0) {
+                console.log("ALARM CLEARED: Sending relock command to hardware.");
+                const success = await sendResetToHardware()
 
-        // SMARTER RESET LOGIC:
-        // Only fire if the state actually flipped from 1 -> 0 
-        // AND we haven't already successfully sent the reset.
-        if (previousOverrideState === 1 && currentDBState === 0) {
-            console.log("ALARM CLEARED: Sending relock command to hardware.");
-            const success = await sendResetToHardware()
-
-            if (success) {
-                previousOverrideState = 0
-                hasSentArmCommand = false
+                if (success) {
+                    previousOverrideState = 0
+                    hasSentArmCommand = false
+                }
+            } else {
+                previousOverrideState = currentDBState;
             }
-        }
-        
-        // Logic: Call is active AND database says narcotics are 'Needed'
-        if (status.OverrideActive === 0 && status.ActiveCall > 0 && status.Needed === 1 && !hasSentArmCommand) {
-            console.log("Narcotics Needed for Case. Arming...");
             
-            if (port && port.writable) {
-                armNarcoticsBox(status.ServiceUUID);
-                hasSentArmCommand = true;
+            // Logic: Call is active AND database says narcotics are 'Needed'
+            if (status.OverrideActive === 0 && status.ActiveCall > 0 && status.Needed === 1 && !hasSentArmCommand) {
+                console.log("Narcotics Needed for Case. Arming...");
+                
+                if (port && port.writable) {
+                    armNarcoticsBox(status.ServiceUUID);
+                    hasSentArmCommand = true;
+                } else {
+                    console.warn("Hardware not connected, but narcotics are needed!");
+                }
+            } 
+            
+            // Reset: If call is cleared OR dispatcher changes 'Needed' back to 0
+            else if (status.OverrideActive === 0 && status.ActiveCall === 0 || status.Needed === 0) {
+                if (hasSentArmCommand) {
+                    console.log("Database cleared. Sending DISARM to hardware...");
+                    disarmNarcoticsBox();
+                    changeLabels();
+                }
             }
-        } 
-        
-        // Reset: If call is cleared OR dispatcher changes 'Needed' back to 0
-        else if (status.OverrideActive === 0 && status.ActiveCall === 0 || status.Needed === 0) {
-            if (hasSentArmCommand) {
-                console.log("Database cleared. Sending DISARM to hardware...");
-                disarmNarcoticsBox();
-                hasSentArmCommand = false
-            }
+        } catch (err) {
+            console.error("Polling error:", err);
         }
-
-        previousOverrideState = currentDBState
-
-    } catch (err) {
-        console.error("Polling error:", err);
-    } 
-
-    setTimeout(startDispatchPolling, 3000)
+    }, 5000); 
 }
 
 // Placeholder for right now. Can be changed as needed.
@@ -383,7 +456,7 @@ async function sendResetToHardware() {
         console.log("Hardware Reset Command Sent Successfully");
         return true;
     } catch (error) {
-        console.error("Hardware Write Error:", error);
+        console.error("Hardware Write Error:", err);
         return false;
     } finally {
         writer.releaseLock();
@@ -409,9 +482,11 @@ async function sendCallStatusToDispatch() {
 
         if (data.success) {
             console.log('Call successfully completed:', data);
-            alert(`Unit ${unitID} is now clear and Case ${caseID} is disarmed.`);
+            showAlerts(`Unit ${unitID} is now clear and Case ${caseID} is disarmed.`, "success");
+            changeLabels();
         } else {
             console.error('Failed to complete call:', data.message);
+            showAlerts(`Failed to complete call.`, "error");
         }
     } catch (error) {
         console.error('Network or Server Error:', error);
