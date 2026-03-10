@@ -626,22 +626,52 @@ app.post('/api/failedLogins', async (req, res) => {
     }
 })
 
-// Get function for graph of calls in a week
-app.get('/api/callsPerWeek', async (req, res) => {
+// Get function for graph of calls in a day
+app.get('/api/callsPerDay', async (req, res) => {
     try {
-        // This query groups by year and week, returning the Monday of that week
+        // 1. Fetch all call counts grouped by date
         const strQuery = `
             SELECT 
-                DATE_FORMAT(DATE_SUB(TimeStamp, INTERVAL WEEKDAY(TimeStamp) DAY), '%Y-%m-%d') AS WeekStart, 
+                DATE_FORMAT(TimeStamp, '%Y-%m-%d') AS DateStr, 
                 COUNT(*) AS CallCount
             FROM tblCallLogs
-            GROUP BY WeekStart
-            ORDER BY WeekStart ASC
-            LIMIT 12; 
+            GROUP BY DateStr
+            ORDER BY DateStr ASC;
         `;
         
-        const [results] = await pool.query(strQuery);
-        res.json(results);
+        const [dbResults] = await pool.query(strQuery);
+
+        // 2. Map the DB results for easy lookup
+        const dataMap = new Map();
+        dbResults.forEach(row => dataMap.set(row.DateStr, row.CallCount));
+
+        // 3. Determine the start date (the first day a call was ever made)
+        // If there are no calls yet, default to today
+        let startDate = dbResults.length > 0 
+            ? new Date(dbResults[0].DateStr) 
+            : new Date();
+            
+        const endDate = new Date(); // Current Date
+        const finalResults = [];
+
+        // 4. Loop from the first call date until Today
+        let currentLoopDate = new Date(startDate);
+        while (currentLoopDate <= endDate) {
+            const year = currentLoopDate.getFullYear();
+            const month = String(currentLoopDate.getMonth() + 1).padStart(2, '0');
+            const day = String(currentLoopDate.getDate()).padStart(2, '0');
+            const dateStr = `${year}-${month}-${day}`;
+
+            finalResults.push({
+                Date: dateStr,
+                CallCount: dataMap.get(dateStr) || 0
+            });
+
+            // Move to the next day
+            currentLoopDate.setDate(currentLoopDate.getDate() + 1);
+        }
+
+        res.json(finalResults);
     } catch (err) {
         console.error("Graph Data Error:", err);
         res.status(500).json({ error: err.message });

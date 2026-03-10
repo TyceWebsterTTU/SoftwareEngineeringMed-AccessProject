@@ -77,10 +77,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function initCallsGraph() {
     try {
-        const fetchRes = await fetch('/api/callsPerWeek')
+        const fetchRes = await fetch('/api/callsPerDay')
         const data = await fetchRes.json()
 
-        const labels = data.map(row => row.WeekStart)
+        // const labels = data.map(row => row.WeekStart)
+        const labels = data.map(row => {
+            const date = new Date(row.Date);
+            return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        });
         const counts = data.map(row => row.CallCount)
 
         const ctx = document.getElementById('canGraph').getContext('2d');
@@ -101,8 +105,8 @@ async function initCallsGraph() {
                         backgroundColor: 'rgba(13, 110, 253, 0.1)',
                         borderWidth: 3,
                         fill: true,
-                        tension: 0.4,
-                        pointRadius: 4,
+                        tension: 0.2,
+                        pointRadius: 3,
                         pointBackgroundColor: '#0d6efd'
                     }]
                 },
@@ -116,11 +120,21 @@ async function initCallsGraph() {
                     scales: {
                         y: {
                             beginAtZero: true,
+                            max: 16,
                             grid: { display: true, color: '#f0f0f0' },
-                            ticks: { stepSize: 1 }
+                            ticks: { 
+                                stepSize: 1,
+                                padding: 10,
+                                precision: 0
+                             }
                         },
                         x: {
-                            grid: { display: false }
+                            grid: { display: false },
+                            ticks: {
+                                maxRotation: 0,
+                                autoSkip: true,
+                                maxTicksLimit: 30
+                            }
                         }
                     }
                 }
@@ -408,7 +422,8 @@ async function showRecentOverrideLogs() {
         if (!overrideLogsTable) {
             overrideLogsTable = new DataTable('#tblOverrideLogs', {
                 searching: false,   // Removes the Search bar
-                paging: false,      // Removes Pagination (Next/Prev buttons)
+                paging: false,
+                pageLength: 15,
                 info: false,        // Removes "Showing 1 of X entries" text
                 lengthChange: false,
                 columnDefs: [

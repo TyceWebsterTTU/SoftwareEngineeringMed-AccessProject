@@ -66,22 +66,15 @@
                 </ul> -->
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a id="nav-Home" class="nav-link active" href="#" onclick="showSection('Home')">Home</a>
+                        
                     </li>
-                    <li class="nav-item">
-                        <a id="nav-Calls" class="nav-link" href="#" onclick="showSection('Calls')">Calls</a>
-                    </li>
-                    <li class="nav-item">
-                        <a id="nav-Units" class="nav-link" href="#" onclick="showSection('Units')">Units Available</a>
-                    </li>
-                    <li class="nav-item">
-                        <a id="nav-Parameds" class="nav-link" href="#" onclick="showSection('Parameds')">Paramedics</a>
-                    </li>
+                    
                 </ul>
 
-                <div class="nav-item dropdown">
+                <div class="navbar-nav">
+                    <div class="nav-item dropdown w-100">
                     <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false"><i class="bi bi-person-circle"></i><span id="displayUsername"></span></a>
-                    <div class="dropdown-menu dropdown-menu-end">
+                    <div class="dropdown-menu dropdown-menu-end bg-secondary border-white mt-1 p-3">
                         <h6 id="displayRole">Role: </h6>
                         <h6 id="displayAmbulance">Ambulance: </h6>
                         <div class="dropdown-divider"></div>
@@ -89,14 +82,13 @@
                                 <button id="btnLogout" class="btn btn-outline-light justify-content-center" type="button" onclick="logout()">Logout</button>  
                             </div>
                         </div>
+                    </div>
+
+                    <!--
+                    <button id="btnUser" class="btn btn-outline-light"><i class="bi bi-person-circle"></i><span id="displayUsername"></span></button>
+                    <button id="btnLogout" class="btn btn-primary btn-outline-light px-4" type="button" onclick="logout()">Logout</button>
+                -->
                 </div>
-
-
-
-                <!---
-                <button id="btnUser" class="btn btn-outline-light"><i class="bi bi-person-circle"></i><span id="displayUsername"></span></button>
-                <button id="btnLogout" class="btn btn-outline-light" type="button" onclick="logout()">Logout</button>
-            -->
             </div>
         </div>
     </nav>

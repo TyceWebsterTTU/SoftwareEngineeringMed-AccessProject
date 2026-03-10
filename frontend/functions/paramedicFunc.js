@@ -20,6 +20,16 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(startDispatchPolling, 1000)
 });
 
+document.getElementById('btnLogs').addEventListener('click', () => {
+    const logs = document.getElementById("live-terminal");
+
+    if (logs.style.display === 'none') {
+        logs.style.display = 'block';
+    } else {
+        logs.style.display = 'none';
+    }
+});
+
 function showAlerts(message, type = "success") {
     const alertPlaceholder = document.getElementById('globalAlertPlaceholder');
     if (!alertPlaceholder) return;
@@ -522,9 +532,13 @@ async function LoadUserData() {
         // Get the DataTable instance
         if (!usersTable) {
             usersTable = new DataTable('#tblParameds', {
+                searching: false,   // Removes the Search bar
+                paging: false,      // Removes Pagination (Next/Prev buttons)
+                info: false,        // Removes "Showing 1 of X entries" text
+                lengthChange: false,
                 columnDefs: [
                     { targets: 0, width: "60px", className: "text-center" },  // ID
-                    { targets: 3, width: "100px", className: "text-center" }, // Ambulance
+                    { targets: 2, width: "100px", className: "text-center" }, // Ambulance
                 ]
             });
         }
@@ -542,7 +556,6 @@ async function LoadUserData() {
         results.forEach(row => {
             if(row.AssignedAmbulance == currUsrAmb){
                 usersTable.row.add([
-                    row.UserID,
                     row.Username,
                     row.Role,
                     row.AssignedAmbulance || 0
