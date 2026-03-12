@@ -517,7 +517,7 @@ app.put('/case', async (req, res) => {
 // Get override logs
 app.get('/api/showOverrideLogs', async (req, res) => {
     try {
-        strQuery = "SELECT UnitID, DATE_FORMAT(OverrideTime, '%b %d, %Y - %h:%i %p') AS OverrideTime FROM tblOverrideLogs"
+        strQuery = "SELECT UnitID, DATE_FORMAT(OverrideTime, '%b %d, %Y - %h:%i %p') AS OverrideTime FROM tblOverrideLogs LIMIT 10"
         const [results] = await pool.query(strQuery)
         res.json(results)
     } catch (err) {

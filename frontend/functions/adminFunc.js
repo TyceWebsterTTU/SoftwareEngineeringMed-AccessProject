@@ -3,6 +3,7 @@ let reader;
 
 let deleteID = null
 let deleteType = null
+let overrideUnitID = null
 let callsChart = null;
 let loginTable = null;
 let usersTable = null;
@@ -874,24 +875,42 @@ async function loadAvailableUnits() {
 }
 
 async function overrideReset(UnitID) {
-    if (!confirm("Remote reset Unit #" + UnitID + "?")) return;
+    overrideUnitID = UnitID
+
+    const msg = document.getElementById('OverrideConfirmModalMessage')
+    if (msg) msg.innerText = `Are you sure you want to remote reset Unit #${UnitID}?`
+
+    const modalEl = document.getElementById('overrideResetConfirmModal')
+    const myModal = new bootstrap.Modal(modalEl)
+    myModal.show()
+}
+
+document.getElementById('confirmOverrideBtn').onclick = async () => {
+    if (!overrideUnitID) return
+
     try {
         const fetchRes = await fetch("/api/resetOverride", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ UnitID: UnitID })
+            body: JSON.stringify({ UnitID: overrideUnitID })
         })
         const data = await fetchRes.json()
         
+        const modalEl = document.getElementById('overrideResetConfirmModal');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) modalInstance.hide();
+
         if (fetchRes.ok && data.status === "Success") {
             showAlerts("Reset signal sent. Hardware will relock shortly.", "success");
-            LoadAmbulanceData();
+            LoadAmbulanceData(); // Refresh the table
         } else {
-            console.error("Server reported failure:", data.error);
             showAlerts("Failed to reset unit: " + (data.error || "Unknown error"), "danger");
         }
     } catch (err) {
         console.error(err);
+        showAlerts("A network error occurred.", "danger");
+    } finally {
+        overrideUnitID = null; // Clear the ID
     }
 }
 
@@ -980,7 +999,7 @@ async function saveUserEdits() {
         // Check if server sent something back
         if (!fetchRes.ok) {
             const err = await fetchRes.json();
-            alert("Error: " + err.message);
+            showAlerts("Error: " + err.message, "danger");
         } 
 
         // Close the modal
@@ -991,7 +1010,7 @@ async function saveUserEdits() {
         // Refresh table data only
         LoadUserData();
         // Optional nice UX feedback
-        alert("User changes saved!");
+        showAlerts("User changes saved!", "success");
     } catch (err) {
         console.error("Save user edit error:", err);
         alert("Failed to save user changes.");
